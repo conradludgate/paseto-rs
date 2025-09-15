@@ -1,0 +1,19 @@
+[workspace]
+members = [
+    "paseto-core",
+    "paseto-json",
+    "paseto-v3",
+    "paseto-v4",
+]
+
+[workspace.dependencies]
+paseto-core = { path = "paseto-core", version = "0.1.0" }
+paseto-json = { path = "paseto-json", version = "0.1.0" }
+
+[profile.dev.package."*"]
+opt-level = 2
+debug = false
+incremental = false
+
+[profile.release]
+debug = 1

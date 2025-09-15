@@ -1,0 +1,11 @@
+[package]
+name = "paseto-json"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+paseto-core.workspace = true
+serde_core = "1"
+serde_json = "1"
+
+jiff = { version = "0.2", features = ["serde"] }

@@ -1,0 +1,16 @@
+[package]
+name = "paseto-core"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["json", "serde"]
+serde = ["dep:serde_core"]
+json = ["dep:serde_core", "dep:serde_json"]
+
+[dependencies]
+serde_core = { version = "1", optional = true }
+serde_json = { version = "1", optional = true }
+
+base64ct = { version = "1.6.0", features = ["alloc"] }
+rand = "0.9"
