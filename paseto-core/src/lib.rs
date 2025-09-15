@@ -1,7 +1,8 @@
 pub mod encodings;
+pub mod pae;
 pub mod tokens;
 pub mod version;
-pub mod pae;
+pub use rand_core;
 
 mod sealed {
     pub trait Sealed {}

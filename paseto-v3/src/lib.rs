@@ -1,15 +1,16 @@
 use aws_lc_rs::{
     cipher::{AES_256, DecryptingKey, EncryptingKey, UnboundCipherKey},
     constant_time,
-    digest::{Digest, SHA384},
-    hkdf::{HKDF_SHA384, KeyType},
-    hmac::HMAC_SHA384,
+    digest::{self, Digest, SHA384},
+    hkdf::{self, HKDF_SHA384, KeyType},
+    hmac::{self, HMAC_SHA384},
     iv::FixedLength,
 };
 use p384::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
 use paseto_core::{
     PasetoError,
     pae::{WriteBytes, pre_auth_encode},
+    rand_core,
     version::{Local, Public, Purpose, SealingKey, UnsealingKey},
 };
 
@@ -36,7 +37,7 @@ impl LocalKey {
     fn keys(
         &self,
         nonce: &[u8],
-    ) -> Result<((UnboundCipherKey, FixedLength<16>), aws_lc_rs::hmac::Key), PasetoError> {
+    ) -> Result<((UnboundCipherKey, FixedLength<16>), hmac::Key), PasetoError> {
         let aead_key = kdf::<48>(&self.0, "paseto-encryption-key", nonce)?;
         let (ek, n2) = aead_key
             .split_last_chunk::<16>()
@@ -45,7 +46,7 @@ impl LocalKey {
 
         let key = UnboundCipherKey::new(&AES_256, ek).map_err(|_| PasetoError::CryptoError)?;
         let iv = FixedLength::from(n2);
-        let mac = aws_lc_rs::hmac::Key::new(HMAC_SHA384, &ak);
+        let mac = hmac::Key::new(HMAC_SHA384, &ak);
 
         Ok(((key, iv), mac))
     }
@@ -179,7 +180,7 @@ fn kdf<const N: usize>(
     }
 
     let ikm = [sep.as_bytes(), nonce];
-    let prk = aws_lc_rs::hkdf::Salt::new(HKDF_SHA384, &[]).extract(key);
+    let prk = hkdf::Salt::new(HKDF_SHA384, &[]).extract(key);
     let okm = prk
         .expand(&ikm, Len::<N>)
         .map_err(|_| PasetoError::CryptoError)?;
@@ -191,21 +192,21 @@ fn kdf<const N: usize>(
 }
 
 fn preauth_local(
-    mac: aws_lc_rs::hmac::Key,
+    mac: hmac::Key,
     encoding: &'static str,
     nonce: &[u8],
     ciphertext: &[u8],
     footer: &[u8],
     aad: &[u8],
-) -> aws_lc_rs::hmac::Tag {
-    pub struct Context(aws_lc_rs::hmac::Context);
+) -> hmac::Tag {
+    pub struct Context(hmac::Context);
     impl WriteBytes for Context {
         fn write(&mut self, slice: &[u8]) {
             self.0.update(slice)
         }
     }
 
-    let mut ctx = Context(aws_lc_rs::hmac::Context::with_key(&mac));
+    let mut ctx = Context(hmac::Context::with_key(&mac));
 
     pre_auth_encode(
         [
@@ -232,14 +233,14 @@ fn preauth_public(
     footer: &[u8],
     aad: &[u8],
 ) -> Digest {
-    pub struct Context(aws_lc_rs::digest::Context);
+    pub struct Context(digest::Context);
     impl WriteBytes for Context {
         fn write(&mut self, slice: &[u8]) {
             self.0.update(slice)
         }
     }
 
-    let mut ctx = Context(aws_lc_rs::digest::Context::new(&SHA384));
+    let mut ctx = Context(digest::Context::new(&SHA384));
 
     let key = key.to_encoded_point(true);
 

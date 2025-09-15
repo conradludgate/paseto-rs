@@ -6,8 +6,6 @@ edition = "2024"
 [dependencies]
 paseto-core.workspace = true
 
-rand_core = "0.9"
-
 p384 = { version = "0.13.0", features = ["ecdh", "pkcs8", "ecdsa-core"] }
 aws-lc-rs = "1.14"
 

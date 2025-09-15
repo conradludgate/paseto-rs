@@ -8,10 +8,13 @@ use digest::{
 };
 use ed25519_dalek::Signature;
 use generic_array::{GenericArray, sequence::Split};
-use paseto_core::pae::{WriteBytes, pre_auth_encode};
 use paseto_core::{
     PasetoError,
     version::{Local, Public, Purpose, SealingKey, UnsealingKey},
+};
+use paseto_core::{
+    pae::{WriteBytes, pre_auth_encode},
+    rand_core,
 };
 
 pub struct SecretKey(

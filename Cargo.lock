@@ -690,7 +690,6 @@ dependencies = [
  "base64ct",
  "rand_core 0.9.3",
  "serde_core",
- "serde_json",
 ]
 
 [[package]]
@@ -713,7 +712,6 @@ dependencies = [
  "p384",
  "paseto-core",
  "paseto-json",
- "rand_core 0.9.3",
  "serde",
  "serde_json",
 ]
@@ -733,7 +731,6 @@ dependencies = [
  "libtest-mimic",
  "paseto-core",
  "paseto-json",
- "rand_core 0.9.3",
  "serde",
  "serde_json",
  "sha2",

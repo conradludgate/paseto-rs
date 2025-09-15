@@ -9,7 +9,6 @@ paseto-core.workspace = true
 generic-array = "0.14"
 cipher = "0.4.4"
 digest = { version = "0.10.7", features = ["mac"] }
-rand_core = "0.9"
 
 chacha20 = { version = "0.9.1" }
 blake2 = { version = "0.10.6" }

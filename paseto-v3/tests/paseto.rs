@@ -1,6 +1,7 @@
 use std::fs;
 
 use libtest_mimic::{Arguments, Failed, Trial};
+use paseto_core::rand_core;
 use paseto_json::Json;
 use paseto_v3::{
     DecryptedToken, EncryptedToken, LocalKey, PublicKey, SecretKey, SignedToken, VerifiedToken,
