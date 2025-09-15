@@ -1,4 +1,4 @@
-use rand::TryCryptoRng;
+use rand_core::TryCryptoRng;
 
 use crate::{PasetoError, sealed::Sealed};
 

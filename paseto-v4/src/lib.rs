@@ -53,7 +53,7 @@ impl LocalKey {
 }
 
 impl SealingKey<Local> for LocalKey {
-    fn nonce(mut rng: impl rand::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
+    fn nonce(mut rng: impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
         let mut nonce = [0; 32];
         rng.try_fill_bytes(&mut nonce)
             .map_err(|_| PasetoError::CryptoError)?;
@@ -110,7 +110,7 @@ impl UnsealingKey<Local> for LocalKey {
 }
 
 impl SealingKey<Public> for SecretKey {
-    fn nonce(_: impl rand::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
+    fn nonce(_: impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
         Ok(Vec::with_capacity(32))
     }
 

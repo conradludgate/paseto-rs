@@ -1,20 +1,21 @@
-mod pae;
-
-use cipher::{ArrayLength, StreamCipher};
-use digest::{
-    Mac,
-    consts::{U32, U48},
+use aws_lc_rs::{
+    cipher::{AES_256, DecryptingKey, EncryptingKey, UnboundCipherKey},
+    constant_time,
+    digest::{Digest, SHA384},
+    hkdf::{HKDF_SHA384, KeyType},
+    hmac::HMAC_SHA384,
+    iv::FixedLength,
 };
-use generic_array::{GenericArray, sequence::Split};
-use p384::ecdsa::signature::{DigestSigner, DigestVerifier};
+use p384::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
 use paseto_core::{
     PasetoError,
+    pae::{WriteBytes, pre_auth_encode},
     version::{Local, Public, Purpose, SealingKey, UnsealingKey},
 };
 
 pub struct SecretKey(p384::ecdsa::SigningKey);
 pub struct PublicKey(p384::ecdsa::VerifyingKey);
-pub struct LocalKey(GenericArray<u8, U32>);
+pub struct LocalKey([u8; 32]);
 
 pub struct V3;
 impl paseto_core::version::Version for V3 {
@@ -34,22 +35,24 @@ pub type DecryptedToken<M, F = ()> = paseto_core::tokens::DecryptedToken<V3, M, 
 impl LocalKey {
     fn keys(
         &self,
-        nonce: &GenericArray<u8, U32>,
-    ) -> (ctr::Ctr64BE<aes::Aes256>, hmac::Hmac<sha2::Sha384>) {
-        use cipher::KeyIvInit;
-        use digest::Mac;
+        nonce: &[u8],
+    ) -> Result<((UnboundCipherKey, FixedLength<16>), aws_lc_rs::hmac::Key), PasetoError> {
+        let aead_key = kdf::<48>(&self.0, "paseto-encryption-key", nonce)?;
+        let (ek, n2) = aead_key
+            .split_last_chunk::<16>()
+            .ok_or(PasetoError::CryptoError)?;
+        let ak = kdf::<48>(&self.0, "paseto-auth-key-for-aead", nonce)?;
 
-        let (ek, n2) = kdf::<U48>(&self.0, "paseto-encryption-key", nonce).split();
-        let ak: GenericArray<u8, U48> = kdf(&self.0, "paseto-auth-key-for-aead", nonce);
+        let key = UnboundCipherKey::new(&AES_256, ek).map_err(|_| PasetoError::CryptoError)?;
+        let iv = FixedLength::from(n2);
+        let mac = aws_lc_rs::hmac::Key::new(HMAC_SHA384, &ak);
 
-        let cipher = ctr::Ctr64BE::<aes::Aes256>::new(&ek, &n2);
-        let mac = hmac::Hmac::new_from_slice(&ak).expect("key should be valid");
-        (cipher, mac)
+        Ok(((key, iv), mac))
     }
 }
 
 impl SealingKey<Local> for LocalKey {
-    fn nonce(mut rng: impl rand::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
+    fn nonce(mut rng: impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
         let mut nonce = [0; 32];
         rng.try_fill_bytes(&mut nonce)
             .map_err(|_| PasetoError::CryptoError)?;
@@ -67,12 +70,16 @@ impl SealingKey<Local> for LocalKey {
         aad: &[u8],
     ) -> Result<Vec<u8>, PasetoError> {
         let (nonce, ciphertext) = payload.split_at_mut(32);
-        let nonce: &[u8] = nonce;
 
-        let (mut cipher, mac) = self.keys(nonce.into());
-        cipher.apply_keystream(ciphertext);
-        let mac = preauth_local(mac, encoding, nonce, ciphertext, footer, aad);
-        payload.extend_from_slice(&mac.finalize().into_bytes());
+        let ((key, iv), mac) = self.keys(nonce)?;
+
+        EncryptingKey::ctr(key)
+            .map_err(|_| PasetoError::CryptoError)?
+            .less_safe_encrypt(ciphertext, aws_lc_rs::cipher::EncryptionContext::Iv128(iv))
+            .map_err(|_| PasetoError::CryptoError)?;
+
+        let tag = preauth_local(mac, encoding, nonce, ciphertext, footer, aad);
+        payload.extend_from_slice(tag.as_ref());
 
         Ok(payload)
     }
@@ -93,20 +100,24 @@ impl UnsealingKey<Local> for LocalKey {
 
         let (ciphertext, tag) = payload.split_at_mut(len - 48);
         let (nonce, ciphertext) = ciphertext.split_at_mut(32);
-        let nonce: &[u8] = nonce;
 
-        let (mut cipher, mac) = self.keys(nonce.into());
-        let mac = preauth_local(mac, encoding, nonce, ciphertext, footer, aad);
-        mac.verify_slice(tag)
+        let ((key, iv), mac) = self.keys(nonce)?;
+
+        let actual_tag = preauth_local(mac, encoding, nonce, ciphertext, footer, aad);
+        constant_time::verify_slices_are_equal(actual_tag.as_ref(), tag)
             .map_err(|_| PasetoError::CryptoError)?;
-        cipher.apply_keystream(ciphertext);
+
+        DecryptingKey::ctr(key)
+            .map_err(|_| PasetoError::CryptoError)?
+            .decrypt(ciphertext, aws_lc_rs::cipher::DecryptionContext::Iv128(iv))
+            .map_err(|_| PasetoError::CryptoError)?;
 
         Ok(ciphertext)
     }
 }
 
 impl SealingKey<Public> for SecretKey {
-    fn nonce(_: impl rand::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
+    fn nonce(_: impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
         Ok(Vec::with_capacity(96))
     }
 
@@ -118,7 +129,10 @@ impl SealingKey<Public> for SecretKey {
         aad: &[u8],
     ) -> Result<Vec<u8>, PasetoError> {
         let digest = preauth_public(self.0.verifying_key(), encoding, &payload, footer, aad);
-        let signature: p384::ecdsa::Signature = self.0.sign_digest(digest);
+        let signature: p384::ecdsa::Signature = self
+            .0
+            .sign_prehash(digest.as_ref())
+            .map_err(|_| PasetoError::CryptoError)?;
         let signature = signature.normalize_s().unwrap_or(signature);
 
         payload.extend_from_slice(&signature.to_bytes());
@@ -145,33 +159,55 @@ impl UnsealingKey<Public> for PublicKey {
             .map_err(|_| PasetoError::InvalidToken)?;
         let digest = preauth_public(&self.0, encoding, cleartext, footer, aad);
         self.0
-            .verify_digest(digest, &signature)
+            .verify_prehash(digest.as_ref(), &signature)
             .map_err(|_| PasetoError::CryptoError)?;
 
         Ok(cleartext)
     }
 }
 
-fn kdf<O>(key: &[u8], sep: &'static str, nonce: &[u8]) -> GenericArray<u8, O>
-where
-    O: ArrayLength<u8>,
-{
-    let mut output = GenericArray::<u8, O>::default();
-    hkdf::Hkdf::<sha2::Sha384>::new(None, key)
-        .expand_multi_info(&[sep.as_bytes(), nonce], &mut output)
-        .unwrap();
-    output
+fn kdf<const N: usize>(
+    key: &[u8],
+    sep: &'static str,
+    nonce: &[u8],
+) -> Result<[u8; N], PasetoError> {
+    struct Len<const N: usize>;
+    impl<const N: usize> KeyType for Len<N> {
+        fn len(&self) -> usize {
+            N
+        }
+    }
+
+    let ikm = [sep.as_bytes(), nonce];
+    let prk = aws_lc_rs::hkdf::Salt::new(HKDF_SHA384, &[]).extract(key);
+    let okm = prk
+        .expand(&ikm, Len::<N>)
+        .map_err(|_| PasetoError::CryptoError)?;
+
+    let mut output = [0; N];
+    okm.fill(&mut output)
+        .map_err(|_| PasetoError::CryptoError)?;
+    Ok(output)
 }
 
 fn preauth_local(
-    mac: hmac::Hmac<sha2::Sha384>,
+    mac: aws_lc_rs::hmac::Key,
     encoding: &'static str,
     nonce: &[u8],
     ciphertext: &[u8],
     footer: &[u8],
     aad: &[u8],
-) -> hmac::Hmac<sha2::Sha384> {
-    pae::pae(
+) -> aws_lc_rs::hmac::Tag {
+    pub struct Context(aws_lc_rs::hmac::Context);
+    impl WriteBytes for Context {
+        fn write(&mut self, slice: &[u8]) {
+            self.0.update(slice)
+        }
+    }
+
+    let mut ctx = Context(aws_lc_rs::hmac::Context::with_key(&mac));
+
+    pre_auth_encode(
         [
             &[
                 "v3".as_bytes(),
@@ -183,9 +219,10 @@ fn preauth_local(
             &[footer],
             &[aad],
         ],
-        pae::Digest(mac),
-    )
-    .0
+        &mut ctx,
+    );
+
+    ctx.0.sign()
 }
 
 fn preauth_public(
@@ -194,10 +231,19 @@ fn preauth_public(
     cleartext: &[u8],
     footer: &[u8],
     aad: &[u8],
-) -> sha2::Sha384 {
+) -> Digest {
+    pub struct Context(aws_lc_rs::digest::Context);
+    impl WriteBytes for Context {
+        fn write(&mut self, slice: &[u8]) {
+            self.0.update(slice)
+        }
+    }
+
+    let mut ctx = Context(aws_lc_rs::digest::Context::new(&SHA384));
+
     let key = key.to_encoded_point(true);
 
-    pae::pae(
+    pre_auth_encode(
         [
             &[key.as_bytes()],
             &[
@@ -209,9 +255,10 @@ fn preauth_public(
             &[footer],
             &[aad],
         ],
-        pae::Digest(sha2::Sha384::default()),
-    )
-    .0
+        &mut ctx,
+    );
+
+    ctx.0.finish()
 }
 
 impl SecretKey {
@@ -276,11 +323,11 @@ impl PublicKey {
 impl LocalKey {
     /// Create a V4 local key from raw bytes
     pub fn from_bytes(key: [u8; 32]) -> Self {
-        LocalKey(key.into())
+        LocalKey(key)
     }
 
     /// Get the raw bytes from this key
     pub fn into_bytes(&self) -> [u8; 32] {
-        self.0.into()
+        self.0
     }
 }

@@ -5,7 +5,7 @@ use paseto_json::Json;
 use paseto_v4::{
     DecryptedToken, EncryptedToken, LocalKey, PublicKey, SecretKey, SignedToken, VerifiedToken,
 };
-use rand::rand_core::impls::{next_u32_via_fill, next_u64_via_fill};
+use rand_core::impls::{next_u32_via_fill, next_u64_via_fill};
 use serde::{
     Deserialize,
     de::{DeserializeOwned, Visitor},
@@ -258,7 +258,7 @@ impl<const N: usize> FakeRng<N> {
     }
 }
 
-impl<const N: usize> rand::RngCore for FakeRng<N> {
+impl<const N: usize> rand_core::RngCore for FakeRng<N> {
     fn next_u32(&mut self) -> u32 {
         next_u32_via_fill(self)
     }
@@ -279,4 +279,4 @@ impl<const N: usize> rand::RngCore for FakeRng<N> {
 }
 
 // not really
-impl<const N: usize> rand::CryptoRng for FakeRng<N> {}
+impl<const N: usize> rand_core::CryptoRng for FakeRng<N> {}
