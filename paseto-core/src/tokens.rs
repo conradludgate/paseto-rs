@@ -67,7 +67,7 @@ impl<V, T, M> UnsealedToken<V, T, M, ()> {
 /// * [`EncryptedToken`] - A [`local`](version::Local) PASETO that is encryption.
 ///
 /// This type has a payload that is currently inaccessible. To access it, you will need to
-/// decrypt/verify the contents. For that you will want [`ValidatedToken`].
+/// decrypt/verify the contents. For that you will want [`UnsealedToken`].
 ///
 /// To convert to an [`UnsealedToken`], you will need to use either
 /// * [`SignedToken::verify`]

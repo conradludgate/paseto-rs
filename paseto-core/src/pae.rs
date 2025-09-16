@@ -1,3 +1,7 @@
+//! Pre-auth encoding
+//! 
+//! This is a low level detail used to build PASETO version implementations.
+
 pub trait WriteBytes {
     fn write(&mut self, slice: &[u8]);
 }

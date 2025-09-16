@@ -36,7 +36,7 @@ impl<T: Serialize + DeserializeOwned> Footer for Json<T> {
 
 impl<M: Serialize + DeserializeOwned> Payload for Json<M> {
     /// JSON is the standard payload and requires no version suffix
-    const SUFFIX: &'static str = ".";
+    const SUFFIX: &'static str = "";
 
     fn encode(self, writer: impl std::io::Write) -> Result<(), std::io::Error> {
         serde_json::to_writer(writer, &self.0).map_err(std::io::Error::from)

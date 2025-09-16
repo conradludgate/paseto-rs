@@ -10,8 +10,8 @@ use ed25519_dalek::Signature;
 use generic_array::{GenericArray, sequence::Split};
 use paseto_core::{
     PasetoError,
-    key::{Key, SealingKey, Secret, UnsealingKey},
-    version::{Local, Public, Purpose},
+    key::{Key, SealingKey, UnsealingKey},
+    version::{Local, Marker, Public, Secret},
 };
 use paseto_core::{
     pae::{WriteBytes, pre_auth_encode},
@@ -30,7 +30,7 @@ pub struct LocalKey(GenericArray<u8, U32>);
 pub struct V4;
 impl paseto_core::version::Version for V4 {
     const PASETO_HEADER: &'static str = "v4";
-    const PASERK_HEADER: &'static str = "k4.";
+    const PASERK_HEADER: &'static str = "k4";
 
     type LocalKey = LocalKey;
     type PublicKey = PublicKey;

@@ -1,7 +1,7 @@
 use std::{fs, str::FromStr};
 
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::key::{Key, KeyId, KeyText, KeyType};
+use paseto_core::{key::{Key, KeyId, KeyText}, version::Marker};
 use paseto_v3::{LocalKey, PublicKey, SecretKey, V3};
 use serde::{Deserialize, de::DeserializeOwned};
 
@@ -49,7 +49,7 @@ impl IdTest {
 
     fn add_tests<K: Key<Version = V3>>(tests: &mut Vec<Trial>) {
         let test_file: TestFile<Self> =
-            read_test(&format!("k3.{}json", <K::KeyType as KeyType>::ID_HEADER));
+            read_test(&format!("k3{}json", <K::KeyType as Marker>::ID_HEADER));
         for test in test_file.tests {
             tests.push(Trial::test(test.name, || test.test_data.test::<K>()));
         }
@@ -88,7 +88,7 @@ impl KeyTest {
 
     fn add_tests<K: Key<Version = V3>>(tests: &mut Vec<Trial>) {
         let test_file: TestFile<Self> =
-            read_test(&format!("k3.{}json", <K::KeyType as KeyType>::HEADER));
+            read_test(&format!("k3{}json", <K::KeyType as Marker>::HEADER));
         for test in test_file.tests {
             tests.push(Trial::test(test.name, || test.test_data.test::<K>()));
         }

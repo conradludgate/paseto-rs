@@ -10,10 +10,11 @@ use base64ct::Encoding;
 
 use crate::{PasetoError, tokens::SealedToken, version};
 
-/// A payload protocol.
+/// A PASETO payload object.
 pub trait Payload: Sized {
     /// Suffix for this encoding type.
-    /// Must end with a trailing `.`.
+    /// 
+    /// Currently the standard only supports JSON, which has no suffix.
     const SUFFIX: &'static str;
 
     /// Encode the message
@@ -26,7 +27,6 @@ pub trait Payload: Sized {
 /// Encoding scheme for PASETO footers.
 ///
 /// Footers are allowed to be any encoding, but JSON is the standard.
-/// You can use the `Json` type to encode serde structs using JSON.
 ///
 /// Footers are also optional, so the `()` empty type is considered as a missing footer.
 pub trait Footer: Sized {

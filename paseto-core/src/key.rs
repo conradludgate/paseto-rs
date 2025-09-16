@@ -5,17 +5,21 @@ use std::marker::PhantomData;
 use base64ct::Encoding;
 use rand_core::TryCryptoRng;
 
-use crate::version;
-use crate::{PasetoError, sealed::Sealed};
+use crate::PasetoError;
+use crate::version::{self, Marker};
 
+/// Defines a PASERK key type
 pub trait Key: Sized {
     type Version: version::Version;
-    type KeyType: KeyType;
+    type KeyType: Marker;
 
     fn encode(&self) -> Box<[u8]>;
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError>;
 }
 
+/// Defines a secret PASETO key that can be used to create PASETO tokens.
+/// 
+/// We define "sealing" as encrypting or deriving a new signature. 
 pub trait SealingKey<Purpose>: Key {
     fn nonce(rng: impl TryCryptoRng) -> Result<Vec<u8>, PasetoError>;
 
@@ -28,6 +32,9 @@ pub trait SealingKey<Purpose>: Key {
     ) -> Result<Vec<u8>, PasetoError>;
 }
 
+/// Defines a PASETO key that can be used to validate and read PASETO tokens.
+/// 
+/// We define "unsealing" as decrypting or validating a signature. 
 pub trait UnsealingKey<Purpose>: Key {
     fn unseal<'a>(
         &self,
@@ -38,34 +45,7 @@ pub trait UnsealingKey<Purpose>: Key {
     ) -> Result<&'a [u8], PasetoError>;
 }
 
-pub trait KeyType: Sealed {
-    /// "local." or "public." or "secret."
-    const HEADER: &'static str;
-    const ID_HEADER: &'static str;
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Secret;
-pub use version::Local;
-pub use version::Public;
-
-impl Sealed for Secret {}
-
-impl KeyType for Secret {
-    const HEADER: &'static str = "secret.";
-    const ID_HEADER: &'static str = "sid.";
-}
-
-impl KeyType for Public {
-    const HEADER: &'static str = "public.";
-    const ID_HEADER: &'static str = "pid.";
-}
-
-impl KeyType for Local {
-    const HEADER: &'static str = "local.";
-    const ID_HEADER: &'static str = "lid.";
-}
-
+/// A short ID for a key.
 pub struct KeyId<K: Key> {
     id: [u8; 33],
     _key: PhantomData<K>,
@@ -101,7 +81,7 @@ impl<K: Key> From<&KeyText<K>> for KeyId<K> {
     fn from(value: &KeyText<K>) -> Self {
         Self {
             id: <K::Version as version::Version>::hash_key(
-                <K::KeyType as KeyType>::ID_HEADER,
+                <K::KeyType as Marker>::ID_HEADER,
                 value.to_string().as_bytes(),
             ),
             _key: value._key,
@@ -109,6 +89,9 @@ impl<K: Key> From<&KeyText<K>> for KeyId<K> {
     }
 }
 
+/// A plaintext encoding of a key.
+/// 
+/// Be advised that this encoding has no extra security, so it is not safe to transport as is.
 pub struct KeyText<K: Key> {
     data: Box<[u8]>,
     _key: PhantomData<K>,
@@ -158,7 +141,7 @@ impl<K: Key> From<&K> for KeyText<K> {
 impl<K: Key> fmt::Display for KeyId<K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(<K::Version as version::Version>::PASERK_HEADER)?;
-        f.write_str(<K::KeyType as KeyType>::ID_HEADER)?;
+        f.write_str(<K::KeyType as Marker>::ID_HEADER)?;
 
         let mut id = [0u8; 44];
         let id = &<base64ct::Base64UrlUnpadded as Encoding>::encode(&self.id, &mut id)
@@ -175,7 +158,7 @@ impl<K: Key> std::str::FromStr for KeyId<K> {
             .strip_prefix(<K::Version as version::Version>::PASERK_HEADER)
             .ok_or(PasetoError::InvalidKey)?;
         let s = s
-            .strip_prefix(<K::KeyType as KeyType>::ID_HEADER)
+            .strip_prefix(<K::KeyType as Marker>::ID_HEADER)
             .ok_or(PasetoError::InvalidKey)?;
 
         let mut id = [0u8; 33];
@@ -197,7 +180,7 @@ impl<K: Key> std::str::FromStr for KeyId<K> {
 impl<K: Key> fmt::Display for KeyText<K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(<K::Version as version::Version>::PASERK_HEADER)?;
-        f.write_str(<K::KeyType as KeyType>::HEADER)?;
+        f.write_str(<K::KeyType as Marker>::HEADER)?;
         f.write_str(&base64ct::Base64UrlUnpadded::encode_string(&self.data))
     }
 }
@@ -210,7 +193,7 @@ impl<K: Key> std::str::FromStr for KeyText<K> {
             .strip_prefix(<K::Version as version::Version>::PASERK_HEADER)
             .ok_or(PasetoError::InvalidKey)?;
         let s = s
-            .strip_prefix(<K::KeyType as KeyType>::HEADER)
+            .strip_prefix(<K::KeyType as Marker>::HEADER)
             .ok_or(PasetoError::InvalidKey)?;
 
         let data = base64ct::Base64UrlUnpadded::decode_vec(s)

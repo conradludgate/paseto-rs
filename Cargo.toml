@@ -8,8 +8,8 @@ members = [
 resolver = "3"
 
 [workspace.dependencies]
-paseto-core = { path = "paseto-core", version = "0.1.0" }
-paseto-json = { path = "paseto-json", version = "0.1.0" }
+paseto-core = { path = "paseto-core", version = "0.1.0-rc.0" }
+paseto-json = { path = "paseto-json", version = "0.1.0-rc.0" }
 
 [profile.dev.package."*"]
 opt-level = 2

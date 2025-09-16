@@ -685,7 +685,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-core"
-version = "0.1.0"
+version = "0.1.0-rc.0"
 dependencies = [
  "base64ct",
  "rand_core 0.9.3",
@@ -694,7 +694,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-json"
-version = "0.1.0"
+version = "0.1.0-rc.0"
 dependencies = [
  "jiff",
  "paseto-core",
@@ -704,7 +704,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v3"
-version = "0.1.0"
+version = "0.1.0-rc.0"
 dependencies = [
  "aws-lc-rs",
  "hex",
@@ -718,7 +718,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v4"
-version = "0.1.0"
+version = "0.1.0-rc.0"
 dependencies = [
  "blake2",
  "chacha20",

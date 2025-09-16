@@ -9,10 +9,10 @@ use aws_lc_rs::{
 use p384::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
 use paseto_core::{
     PasetoError,
-    key::{Key, SealingKey, Secret, UnsealingKey},
+    key::{Key, SealingKey, UnsealingKey},
     pae::{WriteBytes, pre_auth_encode},
     rand_core,
-    version::{Local, Public, Purpose},
+    version::{Local, Marker, Public, Secret},
 };
 
 pub struct SecretKey(p384::ecdsa::SigningKey);
@@ -22,7 +22,7 @@ pub struct LocalKey([u8; 32]);
 pub struct V3;
 impl paseto_core::version::Version for V3 {
     const PASETO_HEADER: &'static str = "v3";
-    const PASERK_HEADER: &'static str = "k3.";
+    const PASERK_HEADER: &'static str = "k3";
 
     type LocalKey = LocalKey;
     type PublicKey = PublicKey;
