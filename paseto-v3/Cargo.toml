@@ -2,6 +2,18 @@
 name = "paseto-v3"
 version = "0.1.0-rc.0"
 edition = "2024"
+authors = ["Conrad Ludgate <conradludgate@gmail.com>"]
+repository = "https://github.com/conradludgate/paseto-rs"
+description = "PASETO/PASERK V3"
+license = "Apache-2.0"
+keywords = ["paseto", "paserk", "token", "security"]
+categories = [
+  "cryptography",
+  "authentication",
+  "encoding",
+  "network-programming",
+  "web-programming",
+]
 
 [dependencies]
 paseto-core.workspace = true
