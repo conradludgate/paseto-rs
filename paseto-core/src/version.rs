@@ -1,6 +1,7 @@
-use rand_core::TryCryptoRng;
-
-use crate::{PasetoError, sealed::Sealed};
+use crate::{
+    key::{Key, SealingKey, Secret, UnsealingKey},
+    sealed::Sealed,
+};
 
 pub trait Version {
     /// Header for PASETO
@@ -8,9 +9,11 @@ pub trait Version {
     /// Header for PASERK
     const PASERK_HEADER: &'static str;
 
-    type LocalKey: SealingKey<Local> + UnsealingKey<Local>;
-    type PublicKey: UnsealingKey<Public>;
-    type SecretKey: SealingKey<Public>;
+    type LocalKey: SealingKey<Local> + UnsealingKey<Local> + Key<Version = Self, KeyType = Local>;
+    type PublicKey: UnsealingKey<Public> + Key<Version = Self, KeyType = Public>;
+    type SecretKey: SealingKey<Public> + Key<Version = Self, KeyType = Secret>;
+
+    fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33];
 }
 
 pub trait Purpose: Sealed + Sized {
@@ -42,26 +45,4 @@ impl Purpose for Local {
 
     type SealingKey<V: Version> = V::LocalKey;
     type UnsealingKey<V: Version> = V::LocalKey;
-}
-
-pub trait SealingKey<Purpose> {
-    fn nonce(rng: impl TryCryptoRng) -> Result<Vec<u8>, PasetoError>;
-
-    fn seal(
-        &self,
-        encoding: &'static str,
-        payload: Vec<u8>,
-        footer: &[u8],
-        aad: &[u8],
-    ) -> Result<Vec<u8>, PasetoError>;
-}
-
-pub trait UnsealingKey<Purpose> {
-    fn unseal<'a>(
-        &self,
-        encoding: &'static str,
-        payload: &'a mut [u8],
-        footer: &[u8],
-        aad: &[u8],
-    ) -> Result<&'a [u8], PasetoError>;
 }

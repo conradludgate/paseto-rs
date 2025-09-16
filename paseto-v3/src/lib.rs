@@ -9,9 +9,10 @@ use aws_lc_rs::{
 use p384::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
 use paseto_core::{
     PasetoError,
+    key::{Key, SealingKey, Secret, UnsealingKey},
     pae::{WriteBytes, pre_auth_encode},
     rand_core,
-    version::{Local, Public, Purpose, SealingKey, UnsealingKey},
+    version::{Local, Public, Purpose},
 };
 
 pub struct SecretKey(p384::ecdsa::SigningKey);
@@ -21,17 +22,67 @@ pub struct LocalKey([u8; 32]);
 pub struct V3;
 impl paseto_core::version::Version for V3 {
     const PASETO_HEADER: &'static str = "v3";
-    const PASERK_HEADER: &'static str = "k3";
+    const PASERK_HEADER: &'static str = "k3.";
 
     type LocalKey = LocalKey;
     type PublicKey = PublicKey;
     type SecretKey = SecretKey;
+
+    fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33] {
+        let mut ctx = digest::Context::new(&SHA384);
+        ctx.update(Self::PASERK_HEADER.as_bytes());
+        ctx.update(key_header.as_bytes());
+        ctx.update(key_data);
+        let hash = ctx.finish();
+        assert_eq!(hash.as_ref().len(), 48);
+
+        hash.as_ref()[..33].try_into().unwrap()
+    }
 }
 
 pub type SignedToken<M, F = ()> = paseto_core::tokens::SignedToken<V3, M, F>;
 pub type EncryptedToken<M, F = ()> = paseto_core::tokens::EncryptedToken<V3, M, F>;
 pub type VerifiedToken<M, F = ()> = paseto_core::tokens::VerifiedToken<V3, M, F>;
 pub type DecryptedToken<M, F = ()> = paseto_core::tokens::DecryptedToken<V3, M, F>;
+
+impl Key for LocalKey {
+    type Version = V3;
+    type KeyType = Local;
+
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        bytes
+            .try_into()
+            .map(Self)
+            .map_err(|_| PasetoError::InvalidKey)
+    }
+    fn encode(&self) -> Box<[u8]> {
+        self.0.to_vec().into_boxed_slice()
+    }
+}
+
+impl Key for PublicKey {
+    type Version = V3;
+    type KeyType = Public;
+
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        Self::from_sec1_bytes(bytes)
+    }
+    fn encode(&self) -> Box<[u8]> {
+        self.0.to_encoded_point(true).to_bytes()
+    }
+}
+
+impl Key for SecretKey {
+    type Version = V3;
+    type KeyType = Secret;
+
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        Self::from_bytes(bytes)
+    }
+    fn encode(&self) -> Box<[u8]> {
+        self.0.to_bytes().to_vec().into_boxed_slice()
+    }
+}
 
 impl LocalKey {
     fn keys(

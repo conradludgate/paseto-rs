@@ -3,6 +3,7 @@ pub mod pae;
 pub mod tokens;
 pub mod version;
 pub use rand_core;
+pub mod key;
 
 mod sealed {
     pub trait Sealed {}

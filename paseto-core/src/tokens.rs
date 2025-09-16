@@ -7,7 +7,8 @@ use rand_core::TryCryptoRng;
 use crate::{
     PasetoError,
     encodings::{Footer, Payload},
-    version::{self, SealingKey, UnsealingKey},
+    key::{SealingKey, UnsealingKey},
+    version,
 };
 
 pub type SignedToken<V, M, F = ()> = SealedToken<V, version::Public, M, F>;

@@ -1,0 +1,37 @@
+{
+  "name": "PASERK k4.pid Test Vectors",
+  "tests": [
+    {
+      "name": "k4.pid-1",
+      "expect-fail": false,
+      "key": "0000000000000000000000000000000000000000000000000000000000000000",
+      "paserk": "k4.pid.S_XQmeEwHbbvRmiyfXfHYpLGjXGzjTRSDoT1YtTakWFE"
+    },
+    {
+      "name": "k4.pid-2",
+      "expect-fail": false,
+      "key": "b7715bd661458d928654d3e832f53ff5c9480542e0e3d4c9b032c768c7ce6023",
+      "paserk": "k4.pid.AGPCOBRB8Pz0CwM8Q_BsUPL48_3f4TlM2sftGv4z93TY"
+    },
+    {
+      "name": "k4.pid-3",
+      "expect-fail": false,
+      "key": "a0fbc3dc2f99a538b40fb7616a83cf4276b6cf223fff5a2c2d3236235eb87dc7",
+      "paserk": "k4.pid.ALkKEkc7gErKCML_CaLMeO81O8nR57b96ou84jObBonE"
+    },
+    {
+      "name": "k4.pid-fail-1",
+      "expect-fail": true,
+      "key": "707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e",
+      "paserk": null,
+      "comment": "Small public keys must fail to serialize"
+    },
+    {
+      "name": "k4.pid-fail-2",
+      "expect-fail": true,
+      "key": "02707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f",
+      "paserk": null,
+      "comment": "Implementations MUST NOT accept a PASERK of the wrong version."
+    }
+  ]
+}

@@ -29,3 +29,8 @@ libtest-mimic = "0.8.1"
 name = "paseto-test-vectors"
 path = "tests/paseto.rs"
 harness = false
+
+[[test]]
+name = "paserk-test-vectors"
+path = "tests/paserk.rs"
+harness = false

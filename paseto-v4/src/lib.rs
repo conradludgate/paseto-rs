@@ -1,16 +1,17 @@
-use blake2::Blake2bMac;
+use blake2::{Blake2b, Blake2bMac};
 use chacha20::XChaCha20;
 use cipher::{ArrayLength, StreamCipher};
 use digest::{
     Mac,
-    consts::{U32, U56, U64},
+    consts::{U32, U33, U56, U64},
     typenum::{IsLessOrEqual, LeEq, NonZero},
 };
 use ed25519_dalek::Signature;
 use generic_array::{GenericArray, sequence::Split};
 use paseto_core::{
     PasetoError,
-    version::{Local, Public, Purpose, SealingKey, UnsealingKey},
+    key::{Key, SealingKey, Secret, UnsealingKey},
+    version::{Local, Public, Purpose},
 };
 use paseto_core::{
     pae::{WriteBytes, pre_auth_encode},
@@ -29,17 +30,70 @@ pub struct LocalKey(GenericArray<u8, U32>);
 pub struct V4;
 impl paseto_core::version::Version for V4 {
     const PASETO_HEADER: &'static str = "v4";
-    const PASERK_HEADER: &'static str = "k4";
+    const PASERK_HEADER: &'static str = "k4.";
 
     type LocalKey = LocalKey;
     type PublicKey = PublicKey;
     type SecretKey = SecretKey;
+
+    fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33] {
+        use digest::{FixedOutput, Update};
+
+        let mut ctx = Blake2b::<U33>::default();
+        ctx.update(Self::PASERK_HEADER.as_bytes());
+        ctx.update(key_header.as_bytes());
+        ctx.update(key_data);
+        ctx.finalize_fixed().into()
+    }
 }
 
 pub type SignedToken<M, F = ()> = paseto_core::tokens::SignedToken<V4, M, F>;
 pub type EncryptedToken<M, F = ()> = paseto_core::tokens::EncryptedToken<V4, M, F>;
 pub type VerifiedToken<M, F = ()> = paseto_core::tokens::VerifiedToken<V4, M, F>;
 pub type DecryptedToken<M, F = ()> = paseto_core::tokens::DecryptedToken<V4, M, F>;
+
+impl Key for LocalKey {
+    type Version = V4;
+    type KeyType = Local;
+
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        if bytes.len() != 32 {
+            return Err(PasetoError::InvalidKey);
+        }
+        Ok(Self(*GenericArray::from_slice(bytes)))
+    }
+    fn encode(&self) -> Box<[u8]> {
+        self.0.to_vec().into_boxed_slice()
+    }
+}
+
+impl Key for PublicKey {
+    type Version = V4;
+    type KeyType = Public;
+
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        Self::from_public_key(bytes)
+    }
+    fn encode(&self) -> Box<[u8]> {
+        self.0.as_bytes().to_vec().into_boxed_slice()
+    }
+}
+
+impl Key for SecretKey {
+    type Version = V4;
+    type KeyType = Secret;
+
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        Self::from_keypair_bytes(bytes)
+    }
+
+    fn encode(&self) -> Box<[u8]> {
+        let mut bytes = Vec::with_capacity(64);
+        bytes.extend_from_slice(&self.0);
+        bytes.extend_from_slice(self.public_key().0.as_bytes());
+        bytes.into_boxed_slice()
+    }
+}
 
 impl LocalKey {
     fn keys(&self, nonce: &GenericArray<u8, U32>) -> (XChaCha20, Blake2bMac<U32>) {
