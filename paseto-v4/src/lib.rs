@@ -97,6 +97,8 @@ pub mod key {
     use paseto_core::pae::{WriteBytes, pre_auth_encode};
     use paseto_core::rand_core;
     use paseto_core::version::{Local, Marker, Public, Secret};
+    use rand::TryRngCore;
+    use rand::rngs::OsRng;
 
     pub struct SecretKey(
         ed25519_dalek::SecretKey,
@@ -242,9 +244,10 @@ pub mod key {
             Self(self.0)
         }
 
-        fn random(rng: &mut impl rand_core::TryCryptoRng) -> Result<Self, PasetoError> {
+        fn random() -> Result<Self, PasetoError> {
             let mut bytes = [0; 32];
-            rng.try_fill_bytes(&mut bytes)
+            OsRng
+                .try_fill_bytes(&mut bytes)
                 .map_err(|_| PasetoError::CryptoError)?;
             Ok(Self(bytes.into()))
         }
@@ -311,9 +314,10 @@ pub mod key {
             PublicKey((&self.1).into())
         }
 
-        fn random(rng: &mut impl rand_core::TryCryptoRng) -> Result<Self, PasetoError> {
+        fn random() -> Result<Self, PasetoError> {
             let mut secret_key = [0; 32];
-            rng.try_fill_bytes(&mut secret_key)
+            OsRng
+                .try_fill_bytes(&mut secret_key)
                 .map_err(|_| PasetoError::CryptoError)?;
 
             let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(&secret_key);

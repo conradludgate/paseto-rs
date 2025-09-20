@@ -90,6 +90,7 @@ pub mod key {
     use aws_lc_rs::hkdf::{self, HKDF_SHA384, KeyType};
     use aws_lc_rs::hmac::{self, HMAC_SHA384};
     use aws_lc_rs::iv::FixedLength;
+    use aws_lc_rs::rand::{SecureRandom, SystemRandom};
     use p384::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
     pub use paseto_core::key::{Key, KeyText, SealingKey, UnsealingKey};
     use paseto_core::pae::{WriteBytes, pre_auth_encode};
@@ -197,9 +198,10 @@ pub mod key {
             Self(self.0)
         }
 
-        fn random(rng: &mut impl rand_core::TryCryptoRng) -> Result<Self, PasetoError> {
+        fn random() -> Result<Self, PasetoError> {
             let mut bytes = [0; 32];
-            rng.try_fill_bytes(&mut bytes)
+            SystemRandom::new()
+                .fill(&mut bytes)
                 .map_err(|_| PasetoError::CryptoError)?;
             Ok(Self(bytes))
         }
@@ -274,10 +276,11 @@ pub mod key {
             PublicKey(*self.0.verifying_key())
         }
 
-        fn random(rng: &mut impl rand_core::TryCryptoRng) -> Result<Self, PasetoError> {
+        fn random() -> Result<Self, PasetoError> {
             let mut bytes = [0; 48];
             loop {
-                rng.try_fill_bytes(&mut bytes)
+                SystemRandom::new()
+                    .fill(&mut bytes)
                     .map_err(|_| PasetoError::CryptoError)?;
                 match p384::ecdsa::SigningKey::from_bytes(&bytes.into()) {
                     Err(_) => continue,

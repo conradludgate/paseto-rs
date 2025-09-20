@@ -88,7 +88,7 @@ pub mod key {
 
     use libsodium_rs::crypto_stream::{self, xchacha20};
     use libsodium_rs::utils::compare;
-    use libsodium_rs::{crypto_generichash, crypto_sign};
+    use libsodium_rs::{crypto_generichash, crypto_sign, random};
     pub use paseto_core::PasetoError;
     use paseto_core::key::KeyText;
     pub use paseto_core::key::{Key, SealingKey, UnsealingKey};
@@ -225,10 +225,9 @@ pub mod key {
             Self(self.0)
         }
 
-        fn random(rng: &mut impl rand_core::TryCryptoRng) -> Result<Self, PasetoError> {
+        fn random() -> Result<Self, PasetoError> {
             let mut bytes = [0; 32];
-            rng.try_fill_bytes(&mut bytes)
-                .map_err(|_| PasetoError::CryptoError)?;
+            random::fill_bytes(&mut bytes);
             Ok(Self(bytes))
         }
 
@@ -313,11 +312,10 @@ pub mod key {
             PublicKey(crypto_sign::PublicKey::from_bytes_exact(*public_key))
         }
 
-        fn random(rng: &mut impl rand_core::TryCryptoRng) -> Result<Self, PasetoError> {
+        fn random() -> Result<Self, PasetoError> {
             let mut secret_key = [0; 32];
             loop {
-                rng.try_fill_bytes(&mut secret_key)
-                    .map_err(|_| PasetoError::CryptoError)?;
+                random::fill_bytes(&mut secret_key);
                 match crypto_sign::keypair_from_seed(&secret_key) {
                     Ok(key) => break Ok(Self(key.secret_key)),
                     Err(_) => continue,

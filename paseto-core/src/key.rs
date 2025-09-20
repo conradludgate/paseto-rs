@@ -24,7 +24,7 @@ pub trait SealingKey<Purpose>: Key {
     type UnsealingKey: UnsealingKey<Purpose, Version = Self::Version>;
     fn unsealing_key(&self) -> Self::UnsealingKey;
 
-    fn random(rng: &mut impl TryCryptoRng) -> Result<Self, PasetoError>;
+    fn random() -> Result<Self, PasetoError>;
 
     fn nonce(rng: &mut impl TryCryptoRng) -> Result<Vec<u8>, PasetoError>;
 
