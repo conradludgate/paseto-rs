@@ -13,10 +13,9 @@
 ```rust
 use paseto_v4::{SecretKey, PublicKey, SealingKey, SignedToken, VerifiedToken};
 use paseto_json::{RegisteredClaims, jiff};
-use rand::rngs::OsRng;
 
 // create a new keypair
-let secret_key = SecretKey::random(&mut OsRng).unwrap();
+let secret_key = SecretKey::random().unwrap();
 let public_key = secret_key.unsealing_key();
 
 // create a set of token claims
@@ -31,7 +30,7 @@ let claims = RegisteredClaims {
 };
 
 // create and sign a new token
-let signed_token = VerifiedToken::new(claims).sign(&secret_key, &mut OsRng).unwrap();
+let signed_token = VerifiedToken::new(claims).sign(&secret_key).unwrap();
 
 // serialize the token.
 let token = signed_token.to_string();

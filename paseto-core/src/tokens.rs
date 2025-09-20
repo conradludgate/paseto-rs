@@ -2,8 +2,6 @@
 
 use std::marker::PhantomData;
 
-use rand_core::TryCryptoRng;
-
 use crate::encodings::{Footer, Payload};
 use crate::key::{SealingKey, UnsealingKey};
 use crate::{PasetoError, version};
@@ -119,14 +117,24 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
         self,
         key: &P::SealingKey<V>,
         aad: &[u8],
-        rng: &mut impl TryCryptoRng,
+    ) -> Result<SealedToken<V, P, M, F>, PasetoError> {
+        self.dangerous_seal_with_nonce(key, aad, <P::SealingKey<V>>::nonce()?)
+    }
+
+    #[doc(alias = "encrypt")]
+    #[doc(alias = "sign")]
+    pub fn dangerous_seal_with_nonce(
+        self,
+        key: &P::SealingKey<V>,
+        aad: &[u8],
+        nonce: Vec<u8>,
     ) -> Result<SealedToken<V, P, M, F>, PasetoError> {
         let mut footer = Vec::new();
         self.footer
             .encode(&mut footer)
             .map_err(PasetoError::PayloadError)?;
 
-        let mut payload = <P::SealingKey<V>>::nonce(rng)?;
+        let mut payload = nonce;
         self.message
             .encode(&mut payload)
             .map_err(PasetoError::PayloadError)?;
@@ -162,12 +170,8 @@ impl<V: version::Version, M: Payload, F: Footer> EncryptedToken<V, M, F> {
 
 impl<V: version::Version, M: Payload, F: Footer> DecryptedToken<V, M, F> {
     #[inline(always)]
-    pub fn encrypt(
-        self,
-        key: &V::LocalKey,
-        rng: &mut impl TryCryptoRng,
-    ) -> Result<EncryptedToken<V, M, F>, PasetoError> {
-        self.encrypt_with_aad(key, &[], rng)
+    pub fn encrypt(self, key: &V::LocalKey) -> Result<EncryptedToken<V, M, F>, PasetoError> {
+        self.encrypt_with_aad(key, &[])
     }
 
     #[inline(always)]
@@ -175,9 +179,8 @@ impl<V: version::Version, M: Payload, F: Footer> DecryptedToken<V, M, F> {
         self,
         key: &V::LocalKey,
         aad: &[u8],
-        rng: &mut impl TryCryptoRng,
     ) -> Result<EncryptedToken<V, M, F>, PasetoError> {
-        self.seal(key, aad, rng)
+        self.seal(key, aad)
     }
 }
 
@@ -199,12 +202,8 @@ impl<V: version::Version, M: Payload, F: Footer> SignedToken<V, M, F> {
 
 impl<V: version::Version, M: Payload, F: Footer> VerifiedToken<V, M, F> {
     #[inline(always)]
-    pub fn sign(
-        self,
-        key: &V::SecretKey,
-        rng: &mut impl TryCryptoRng,
-    ) -> Result<SignedToken<V, M, F>, PasetoError> {
-        self.sign_with_aad(key, &[], rng)
+    pub fn sign(self, key: &V::SecretKey) -> Result<SignedToken<V, M, F>, PasetoError> {
+        self.sign_with_aad(key, &[])
     }
 
     #[inline(always)]
@@ -212,8 +211,7 @@ impl<V: version::Version, M: Payload, F: Footer> VerifiedToken<V, M, F> {
         self,
         key: &V::SecretKey,
         aad: &[u8],
-        rng: &mut impl TryCryptoRng,
     ) -> Result<SignedToken<V, M, F>, PasetoError> {
-        self.seal(key, aad, rng)
+        self.seal(key, aad)
     }
 }

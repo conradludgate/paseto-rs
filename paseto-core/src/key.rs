@@ -3,7 +3,6 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use base64ct::Encoding;
-use rand_core::TryCryptoRng;
 
 use crate::PasetoError;
 use crate::version::{self, Marker};
@@ -26,7 +25,7 @@ pub trait SealingKey<Purpose>: Key {
 
     fn random() -> Result<Self, PasetoError>;
 
-    fn nonce(rng: &mut impl TryCryptoRng) -> Result<Vec<u8>, PasetoError>;
+    fn nonce() -> Result<Vec<u8>, PasetoError>;
 
     fn seal(
         &self,

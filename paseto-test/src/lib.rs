@@ -1,5 +1,3 @@
-use rand::rand_core::impls::{next_u32_via_fill, next_u64_via_fill};
-use rand::rand_core::{self};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
@@ -51,39 +49,3 @@ impl<'a, const B: bool> Deserialize<'a> for Bool<B> {
         deserializer.deserialize_bool(BoolVisitor)
     }
 }
-
-#[derive(Clone, Debug)]
-/// a consistent rng store
-pub struct FakeRng<const N: usize> {
-    bytes: [u8; N],
-    start: usize,
-}
-
-impl<const N: usize> FakeRng<N> {
-    pub fn new(bytes: [u8; N]) -> Self {
-        Self { bytes, start: 0 }
-    }
-}
-
-impl<const N: usize> rand_core::RngCore for FakeRng<N> {
-    fn next_u32(&mut self) -> u32 {
-        next_u32_via_fill(self)
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        next_u64_via_fill(self)
-    }
-
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        let remaining = N - self.start;
-        let requested = dest.len();
-        if requested > remaining {
-            panic!("not enough entropy");
-        }
-        dest.copy_from_slice(&self.bytes[self.start..self.start + requested]);
-        self.start += requested;
-    }
-}
-
-// not really
-impl<const N: usize> rand_core::CryptoRng for FakeRng<N> {}

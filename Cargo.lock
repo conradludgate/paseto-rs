@@ -1008,7 +1008,6 @@ name = "paseto-core"
 version = "0.1.0-rc.1"
 dependencies = [
  "base64ct",
- "rand_core 0.9.3",
  "serde_core",
 ]
 
@@ -1033,7 +1032,6 @@ dependencies = [
  "paseto-v3",
  "paseto-v4",
  "paseto-v4-sodium",
- "rand",
  "serde",
  "serde_json",
 ]

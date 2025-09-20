@@ -5,13 +5,12 @@
 //! use paseto_v4_sodium::libsodium;
 //! use paseto_v4_sodium::key::{SecretKey, PublicKey, SealingKey};
 //! use paseto_json::{RegisteredClaims, jiff};
-//! use rand::rngs::OsRng;
 //!
 //! // init libsodium
 //! libsodium::ensure_init().expect("libsodium should initialise successfully");
 //!
 //! // create a new keypair
-//! let secret_key = SecretKey::random(&mut OsRng).unwrap();
+//! let secret_key = SecretKey::random().unwrap();
 //! let public_key = secret_key.unsealing_key();
 //!
 //! // create a set of token claims
@@ -26,7 +25,7 @@
 //! };
 //!
 //! // create and sign a new token
-//! let signed_token = VerifiedToken::new(claims).sign(&secret_key, &mut OsRng).unwrap();
+//! let signed_token = VerifiedToken::new(claims).sign(&secret_key).unwrap();
 //!
 //! // serialize the token.
 //! let token = signed_token.to_string();
@@ -93,7 +92,6 @@ pub mod key {
     use paseto_core::key::KeyText;
     pub use paseto_core::key::{Key, SealingKey, UnsealingKey};
     use paseto_core::pae::{WriteBytes, pre_auth_encode};
-    use paseto_core::rand_core;
     use paseto_core::version::{Local, Marker, Public, Secret};
 
     #[derive(Clone)]
@@ -231,14 +229,8 @@ pub mod key {
             Ok(Self(bytes))
         }
 
-        fn nonce(rng: &mut impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
-            let mut nonce = [0; 32];
-            rng.try_fill_bytes(&mut nonce)
-                .map_err(|_| PasetoError::CryptoError)?;
-
-            let mut payload = Vec::with_capacity(64);
-            payload.extend_from_slice(&nonce);
-            Ok(payload)
+        fn nonce() -> Result<Vec<u8>, PasetoError> {
+            Ok(random::bytes(32))
         }
 
         fn seal(
@@ -323,7 +315,7 @@ pub mod key {
             }
         }
 
-        fn nonce(_: &mut impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
+        fn nonce() -> Result<Vec<u8>, PasetoError> {
             Ok(Vec::with_capacity(32))
         }
 

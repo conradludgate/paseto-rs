@@ -4,10 +4,9 @@
 //! use paseto_v3::{SignedToken, VerifiedToken};
 //! use paseto_v3::key::{SecretKey, PublicKey, SealingKey};
 //! use paseto_json::{RegisteredClaims, jiff};
-//! use rand::rngs::OsRng;
 //!
 //! // create a new keypair
-//! let secret_key = SecretKey::random(&mut OsRng).unwrap();
+//! let secret_key = SecretKey::random().unwrap();
 //! let public_key = secret_key.unsealing_key();
 //!
 //! // create a set of token claims
@@ -22,7 +21,7 @@
 //! };
 //!
 //! // create and sign a new token
-//! let signed_token = VerifiedToken::new(claims).sign(&secret_key, &mut OsRng).unwrap();
+//! let signed_token = VerifiedToken::new(claims).sign(&secret_key).unwrap();
 //!
 //! // serialize the token.
 //! let token = signed_token.to_string();
@@ -92,10 +91,10 @@ pub mod key {
     use aws_lc_rs::iv::FixedLength;
     use aws_lc_rs::rand::{SecureRandom, SystemRandom};
     use p384::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
+    use paseto_core::PasetoError;
     pub use paseto_core::key::{Key, KeyText, SealingKey, UnsealingKey};
     use paseto_core::pae::{WriteBytes, pre_auth_encode};
     use paseto_core::version::{Local, Marker, Public, Secret};
-    use paseto_core::{PasetoError, rand_core};
 
     #[derive(Clone)]
     pub struct SecretKey(p384::ecdsa::SigningKey);
@@ -206,9 +205,10 @@ pub mod key {
             Ok(Self(bytes))
         }
 
-        fn nonce(rng: &mut impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
+        fn nonce() -> Result<Vec<u8>, PasetoError> {
             let mut nonce = [0; 32];
-            rng.try_fill_bytes(&mut nonce)
+            SystemRandom::new()
+                .fill(&mut nonce)
                 .map_err(|_| PasetoError::CryptoError)?;
 
             let mut payload = Vec::with_capacity(80);
@@ -289,7 +289,7 @@ pub mod key {
             }
         }
 
-        fn nonce(_: &mut impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
+        fn nonce() -> Result<Vec<u8>, PasetoError> {
             Ok(Vec::with_capacity(96))
         }
 

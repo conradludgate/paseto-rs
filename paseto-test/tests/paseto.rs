@@ -3,7 +3,7 @@ use paseto_core::key::Key;
 use paseto_core::tokens::{DecryptedToken, EncryptedToken, SignedToken, VerifiedToken};
 use paseto_core::version::Version;
 use paseto_json::Json;
-use paseto_test::{Bool, FakeRng, TestFile, read_test};
+use paseto_test::{Bool, TestFile, read_test};
 use serde::Deserialize;
 
 fn main() {
@@ -85,15 +85,13 @@ impl PasetoTest {
                 let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
                 assert_eq!(decrypted_token.message.0, payload);
 
-                let nonce: [u8; 32] = hex::decode(nonce).unwrap().try_into().unwrap();
-
                 let token = DecryptedToken::<V, _>::new(decrypted_token.message)
                     .with_footer(decrypted_token.footer);
                 let token = token
-                    .encrypt_with_aad(
+                    .dangerous_seal_with_nonce(
                         &key,
                         implicit_assertion.as_bytes(),
-                        &mut FakeRng::new(nonce),
+                        hex::decode(nonce).unwrap(),
                     )
                     .unwrap();
 
@@ -153,11 +151,7 @@ impl PasetoTest {
 
                 let token = VerifiedToken::<V, _>::new(token.message).with_footer(token.footer);
                 let token = token
-                    .sign_with_aad(
-                        &secret_key,
-                        implicit_assertion.as_bytes(),
-                        &mut FakeRng::new([]),
-                    )
+                    .sign_with_aad(&secret_key, implicit_assertion.as_bytes())
                     .unwrap();
 
                 // 3-S-1 and 3-S-3 are not using deterministic signatures.
