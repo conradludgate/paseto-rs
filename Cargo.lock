@@ -1005,7 +1005,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-core"
-version = "0.1.0-rc.1"
+version = "0.1.0-rc.2"
 dependencies = [
  "base64ct",
  "serde_core",
@@ -1013,7 +1013,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-json"
-version = "0.1.0-rc.1"
+version = "0.1.0-rc.2"
 dependencies = [
  "jiff",
  "paseto-core",
@@ -1038,7 +1038,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v3"
-version = "0.1.0-rc.1"
+version = "0.1.0-rc.2"
 dependencies = [
  "aws-lc-rs",
  "p384",
@@ -1049,7 +1049,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v4"
-version = "0.1.0-rc.1"
+version = "0.1.0-rc.2"
 dependencies = [
  "blake2",
  "chacha20",
@@ -1067,7 +1067,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v4-sodium"
-version = "0.1.0-rc.1"
+version = "0.1.0-rc.2"
 dependencies = [
  "hex",
  "libsodium-rs",

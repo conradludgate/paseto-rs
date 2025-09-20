@@ -121,8 +121,9 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
         self.dangerous_seal_with_nonce(key, aad, <P::SealingKey<V>>::nonce()?)
     }
 
-    #[doc(alias = "encrypt")]
-    #[doc(alias = "sign")]
+    /// Use [`UnsealedToken::seal`](crate::tokens::UnsealedToken::seal) instead.
+    /// This is provided for testing purposes only.
+    /// Do not use this method directly.
     pub fn dangerous_seal_with_nonce(
         self,
         key: &P::SealingKey<V>,
@@ -139,7 +140,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
             .encode(&mut payload)
             .map_err(PasetoError::PayloadError)?;
 
-        let payload = key.seal(M::SUFFIX, payload, &footer, aad)?;
+        let payload = key.dangerous_seal_with_nonce(M::SUFFIX, payload, &footer, aad)?;
 
         Ok(SealedToken {
             payload,
@@ -153,11 +154,13 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
 }
 
 impl<V: version::Version, M: Payload, F: Footer> EncryptedToken<V, M, F> {
+    /// Try to decrypt the token
     #[inline(always)]
     pub fn decrypt(self, key: &V::LocalKey) -> Result<DecryptedToken<V, M, F>, PasetoError> {
         self.decrypt_with_aad(key, &[])
     }
 
+    /// Try to decrypt the token and authenticate the implicit assertion
     #[inline(always)]
     pub fn decrypt_with_aad(
         self,
@@ -169,11 +172,13 @@ impl<V: version::Version, M: Payload, F: Footer> EncryptedToken<V, M, F> {
 }
 
 impl<V: version::Version, M: Payload, F: Footer> DecryptedToken<V, M, F> {
+    /// Encrypt the token
     #[inline(always)]
     pub fn encrypt(self, key: &V::LocalKey) -> Result<EncryptedToken<V, M, F>, PasetoError> {
         self.encrypt_with_aad(key, &[])
     }
 
+    /// Encrypt the token, additionally authenticating the implicit assertions.
     #[inline(always)]
     pub fn encrypt_with_aad(
         self,
@@ -185,11 +190,13 @@ impl<V: version::Version, M: Payload, F: Footer> DecryptedToken<V, M, F> {
 }
 
 impl<V: version::Version, M: Payload, F: Footer> SignedToken<V, M, F> {
+    /// Try to verify the token signature
     #[inline(always)]
     pub fn verify(self, key: &V::PublicKey) -> Result<VerifiedToken<V, M, F>, PasetoError> {
         self.verify_with_aad(key, &[])
     }
 
+    /// Try to verify the token signature and authenticate the implicit assertion
     #[inline(always)]
     pub fn verify_with_aad(
         self,
@@ -201,11 +208,13 @@ impl<V: version::Version, M: Payload, F: Footer> SignedToken<V, M, F> {
 }
 
 impl<V: version::Version, M: Payload, F: Footer> VerifiedToken<V, M, F> {
+    /// Sign the token
     #[inline(always)]
     pub fn sign(self, key: &V::SecretKey) -> Result<SignedToken<V, M, F>, PasetoError> {
         self.sign_with_aad(key, &[])
     }
 
+    /// Sign the token, additionally authenticating the implicit assertions.
     #[inline(always)]
     pub fn sign_with_aad(
         self,

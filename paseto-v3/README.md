@@ -1,18 +1,12 @@
-# paseto-rs
+# paseto-v3
 
-## Crates
-
-* `paseto-core`, contains core types and traits common to all versions of PASETO
-* `paseto-json`, a serde-json based companion, since all current versions of PASETO require JSON.
-* `paseto-v3`, an aws-lc-rs based implementation of PASETO v3
-* `paseto-v4`, a RustCrypto based implementation of PASETO v4
-* `paseto-v4-sodium`, a libsodium based implementation of PASETO v4
+AWS-LC based PASETO V3 implementation.
 
 ## Examples
 
 ```rust
-use paseto_v4::{SignedToken, VerifiedToken};
-use paseto_v4::key::{SecretKey, PublicKey, SealingKey};
+use paseto_v3::{SignedToken, VerifiedToken};
+use paseto_v3::key::{SecretKey, PublicKey, SealingKey};
 use paseto_json::{RegisteredClaims, jiff};
 
 // create a new keypair
@@ -35,11 +29,11 @@ let signed_token = VerifiedToken::new(claims).sign(&secret_key).unwrap();
 
 // serialize the token.
 let token = signed_token.to_string();
-// "v4.public.eyJpc3MiOiJodHRwczovL3Bhc2V0by5jb25yYWQuY2FmZS8iLCJzdWIiOiJjb25yYWRsdWRnYXRlIiwiYXVkIjpudWxsLCJleHAiOiIyMDI1LTA5LTIwVDEyOjAxOjEzLjcyMjQ3OVoiLCJuYmYiOiIyMDI1LTA5LTIwVDExOjAxOjEzLjcyMjQ3OVoiLCJpYXQiOiIyMDI1LTA5LTIwVDExOjAxOjEzLjcyMjQ3OVoiLCJqdGkiOm51bGx9N7O1CAXQpQ3rpxhq6xFZt32z27VSL8suiek38-5W4LRGr1tDmKcP0_xrlp5-kdE6o7B_K8KU-6Fwmu0hzrkiDQ"
+// "v3.public..."
 
 // serialize the public key.
 let key = public_key.to_string();
-// "k4.public.xRPdFzRvXY-H-6L3S2I3_TmdMKu6XwLKLSR10lZ-yfk"
+// "k3.public..."
 ```
 
 ```rust

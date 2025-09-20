@@ -20,17 +20,23 @@ pub trait Key: Clone {
 ///
 /// We define "sealing" as encrypting or deriving a new signature.
 pub trait SealingKey<Purpose>: Key {
+    /// The type of key that can unseal the tokens we will seal.
     type UnsealingKey: UnsealingKey<Purpose, Version = Self::Version>;
+
+    /// Generate the key that can unseal the tokens this key will seal.
     fn unsealing_key(&self) -> Self::UnsealingKey;
 
+    /// Generate a random key
     fn random() -> Result<Self, PasetoError>;
 
+    /// Do not call this method directly.
     fn nonce() -> Result<Vec<u8>, PasetoError>;
 
-    fn seal(
+    /// Do not call this method directly. Use [`UnsealedToken::seal`](crate::tokens::UnsealedToken::seal) instead.
+    fn dangerous_seal_with_nonce(
         &self,
         encoding: &'static str,
-        payload: Vec<u8>,
+        nonce: Vec<u8>,
         footer: &[u8],
         aad: &[u8],
     ) -> Result<Vec<u8>, PasetoError>;

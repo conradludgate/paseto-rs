@@ -1,19 +1,17 @@
-# paseto-rs
+# paseto-v4-sodium
 
-## Crates
-
-* `paseto-core`, contains core types and traits common to all versions of PASETO
-* `paseto-json`, a serde-json based companion, since all current versions of PASETO require JSON.
-* `paseto-v3`, an aws-lc-rs based implementation of PASETO v3
-* `paseto-v4`, a RustCrypto based implementation of PASETO v4
-* `paseto-v4-sodium`, a libsodium based implementation of PASETO v4
+libsodium based PASETO V4 implementation.
 
 ## Examples
 
 ```rust
-use paseto_v4::{SignedToken, VerifiedToken};
-use paseto_v4::key::{SecretKey, PublicKey, SealingKey};
+use paseto_v4_sodium::{SignedToken, VerifiedToken};
+use paseto_v4_sodium::libsodium;
+use paseto_v4_sodium::key::{SecretKey, PublicKey, SealingKey};
 use paseto_json::{RegisteredClaims, jiff};
+
+// init libsodium
+libsodium::ensure_init().expect("libsodium should initialise successfully");
 
 // create a new keypair
 let secret_key = SecretKey::random().unwrap();

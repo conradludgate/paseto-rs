@@ -7,7 +7,7 @@ use serde_core::ser::SerializeStruct;
 use serde_core::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// `Json` is a type wrapper to implement `Footer` for all types that implement
-/// [`serde::Serialize`] and [`serde::Deserialize`]
+/// [`serde_core::Serialize`] and [`serde_core::Deserialize`]
 ///
 /// When using a JSON footer, you should be aware of the risks of parsing user provided JSON.
 /// <https://github.com/paseto-standard/paseto-spec/blob/master/docs/02-Implementation-Guide/01-Payload-Processing.md#storing-json-in-the-footer>.

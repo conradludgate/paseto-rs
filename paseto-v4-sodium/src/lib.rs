@@ -56,6 +56,8 @@
 //! }
 //! ```
 
+pub use paseto_core::PasetoError;
+
 pub struct V4;
 impl paseto_core::version::Version for V4 {
     const PASETO_HEADER: &'static str = "v4";
@@ -75,9 +77,13 @@ impl paseto_core::version::Version for V4 {
     }
 }
 
+/// A token with publically readable data, but not yet verified
 pub type SignedToken<M, F = ()> = paseto_core::tokens::SignedToken<V4, M, F>;
+/// A token with secret data
 pub type EncryptedToken<M, F = ()> = paseto_core::tokens::EncryptedToken<V4, M, F>;
+/// A [`SignedToken`] that has been verified
 pub type VerifiedToken<M, F = ()> = paseto_core::tokens::VerifiedToken<V4, M, F>;
+/// An [`EncryptedToken`] that has been decrypted
 pub type DecryptedToken<M, F = ()> = paseto_core::tokens::DecryptedToken<V4, M, F>;
 
 pub use libsodium_rs as libsodium;
@@ -88,7 +94,7 @@ pub mod key {
     use libsodium_rs::crypto_stream::{self, xchacha20};
     use libsodium_rs::utils::compare;
     use libsodium_rs::{crypto_generichash, crypto_sign, random};
-    pub use paseto_core::PasetoError;
+    use paseto_core::PasetoError;
     use paseto_core::key::KeyText;
     pub use paseto_core::key::{Key, SealingKey, UnsealingKey};
     use paseto_core::pae::{WriteBytes, pre_auth_encode};
@@ -233,7 +239,7 @@ pub mod key {
             Ok(random::bytes(32))
         }
 
-        fn seal(
+        fn dangerous_seal_with_nonce(
             &self,
             encoding: &'static str,
             mut payload: Vec<u8>,
@@ -319,7 +325,7 @@ pub mod key {
             Ok(Vec::with_capacity(32))
         }
 
-        fn seal(
+        fn dangerous_seal_with_nonce(
             &self,
             encoding: &'static str,
             mut payload: Vec<u8>,

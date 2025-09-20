@@ -52,6 +52,8 @@
 //! }
 //! ```
 
+pub use paseto_core::PasetoError;
+
 pub struct V3;
 impl paseto_core::version::Version for V3 {
     const PASETO_HEADER: &'static str = "v3";
@@ -75,9 +77,13 @@ impl paseto_core::version::Version for V3 {
     }
 }
 
+/// A token with publically readable data, but not yet verified
 pub type SignedToken<M, F = ()> = paseto_core::tokens::SignedToken<V3, M, F>;
+/// A token with secret data
 pub type EncryptedToken<M, F = ()> = paseto_core::tokens::EncryptedToken<V3, M, F>;
+/// A [`SignedToken`] that has been verified
 pub type VerifiedToken<M, F = ()> = paseto_core::tokens::VerifiedToken<V3, M, F>;
+/// An [`EncryptedToken`] that has been decrypted
 pub type DecryptedToken<M, F = ()> = paseto_core::tokens::DecryptedToken<V3, M, F>;
 
 pub mod key {
@@ -216,7 +222,7 @@ pub mod key {
             Ok(payload)
         }
 
-        fn seal(
+        fn dangerous_seal_with_nonce(
             &self,
             encoding: &'static str,
             mut payload: Vec<u8>,
@@ -293,7 +299,7 @@ pub mod key {
             Ok(Vec::with_capacity(96))
         }
 
-        fn seal(
+        fn dangerous_seal_with_nonce(
             &self,
             encoding: &'static str,
             mut payload: Vec<u8>,

@@ -1,12 +1,6 @@
-# paseto-rs
+# paseto-v4
 
-## Crates
-
-* `paseto-core`, contains core types and traits common to all versions of PASETO
-* `paseto-json`, a serde-json based companion, since all current versions of PASETO require JSON.
-* `paseto-v3`, an aws-lc-rs based implementation of PASETO v3
-* `paseto-v4`, a RustCrypto based implementation of PASETO v4
-* `paseto-v4-sodium`, a libsodium based implementation of PASETO v4
+RustCrypto based PASETO V4 implementation.
 
 ## Examples
 
