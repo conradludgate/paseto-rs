@@ -1,22 +1,22 @@
-use aws_lc_rs::{
-    cipher::{AES_256, DecryptingKey, EncryptingKey, UnboundCipherKey},
-    constant_time,
-    digest::{self, Digest, SHA384},
-    hkdf::{self, HKDF_SHA384, KeyType},
-    hmac::{self, HMAC_SHA384},
-    iv::FixedLength,
-};
-use p384::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
-use paseto_core::{
-    PasetoError,
-    key::{Key, SealingKey, UnsealingKey},
-    pae::{WriteBytes, pre_auth_encode},
-    rand_core,
-    version::{Local, Marker, Public, Secret},
-};
+use core::fmt;
 
+use aws_lc_rs::cipher::{AES_256, DecryptingKey, EncryptingKey, UnboundCipherKey};
+use aws_lc_rs::constant_time;
+use aws_lc_rs::digest::{self, Digest, SHA384};
+use aws_lc_rs::hkdf::{self, HKDF_SHA384, KeyType};
+use aws_lc_rs::hmac::{self, HMAC_SHA384};
+use aws_lc_rs::iv::FixedLength;
+use p384::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
+use paseto_core::key::{Key, KeyText, SealingKey, UnsealingKey};
+use paseto_core::pae::{WriteBytes, pre_auth_encode};
+use paseto_core::version::{Local, Marker, Public, Secret};
+use paseto_core::{PasetoError, rand_core};
+
+#[derive(Clone)]
 pub struct SecretKey(p384::ecdsa::SigningKey);
+#[derive(Clone)]
 pub struct PublicKey(p384::ecdsa::VerifyingKey);
+#[derive(Clone)]
 pub struct LocalKey([u8; 32]);
 
 pub struct V3;
@@ -60,6 +60,13 @@ impl Key for LocalKey {
     }
 }
 
+impl core::str::FromStr for LocalKey {
+    type Err = PasetoError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        KeyText::from_str(s).and_then(|k| k.decode())
+    }
+}
+
 impl Key for PublicKey {
     type Version = V3;
     type KeyType = Public;
@@ -72,6 +79,19 @@ impl Key for PublicKey {
     }
 }
 
+impl fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        KeyText::from(self).fmt(f)
+    }
+}
+
+impl core::str::FromStr for PublicKey {
+    type Err = PasetoError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        KeyText::from_str(s).and_then(|k| k.decode())
+    }
+}
+
 impl Key for SecretKey {
     type Version = V3;
     type KeyType = Secret;
@@ -81,6 +101,13 @@ impl Key for SecretKey {
     }
     fn encode(&self) -> Box<[u8]> {
         self.0.to_bytes().to_vec().into_boxed_slice()
+    }
+}
+
+impl core::str::FromStr for SecretKey {
+    type Err = PasetoError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        KeyText::from_str(s).and_then(|k| k.decode())
     }
 }
 
@@ -104,7 +131,19 @@ impl LocalKey {
 }
 
 impl SealingKey<Local> for LocalKey {
-    fn nonce(mut rng: impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
+    type UnsealingKey = Self;
+    fn unsealing_key(&self) -> Self::UnsealingKey {
+        Self(self.0)
+    }
+
+    fn random(rng: &mut impl rand_core::TryCryptoRng) -> Result<Self, PasetoError> {
+        let mut bytes = [0; 32];
+        rng.try_fill_bytes(&mut bytes)
+            .map_err(|_| PasetoError::CryptoError)?;
+        Ok(Self(bytes))
+    }
+
+    fn nonce(rng: &mut impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
         let mut nonce = [0; 32];
         rng.try_fill_bytes(&mut nonce)
             .map_err(|_| PasetoError::CryptoError)?;
@@ -169,7 +208,24 @@ impl UnsealingKey<Local> for LocalKey {
 }
 
 impl SealingKey<Public> for SecretKey {
-    fn nonce(_: impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
+    type UnsealingKey = PublicKey;
+    fn unsealing_key(&self) -> Self::UnsealingKey {
+        PublicKey(*self.0.verifying_key())
+    }
+
+    fn random(rng: &mut impl rand_core::TryCryptoRng) -> Result<Self, PasetoError> {
+        let mut bytes = [0; 48];
+        loop {
+            rng.try_fill_bytes(&mut bytes)
+                .map_err(|_| PasetoError::CryptoError)?;
+            match p384::ecdsa::SigningKey::from_bytes(&bytes.into()) {
+                Err(_) => continue,
+                Ok(key) => break Ok(Self(key)),
+            }
+        }
+    }
+
+    fn nonce(_: &mut impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
         Ok(Vec::with_capacity(96))
     }
 
@@ -250,7 +306,7 @@ fn preauth_local(
     footer: &[u8],
     aad: &[u8],
 ) -> hmac::Tag {
-    pub struct Context(hmac::Context);
+    struct Context(hmac::Context);
     impl WriteBytes for Context {
         fn write(&mut self, slice: &[u8]) {
             self.0.update(slice)
@@ -284,7 +340,7 @@ fn preauth_public(
     footer: &[u8],
     aad: &[u8],
 ) -> Digest {
-    pub struct Context(digest::Context);
+    struct Context(digest::Context);
     impl WriteBytes for Context {
         fn write(&mut self, slice: &[u8]) {
             self.0.update(slice)
@@ -337,11 +393,6 @@ impl SecretKey {
     pub fn from_bytes(s: &[u8]) -> Result<Self, PasetoError> {
         let sk = p384::SecretKey::from_slice(s).map_err(|_| PasetoError::InvalidKey)?;
         Ok(Self(sk.into()))
-    }
-
-    /// Get the corresponding V3 public key for this V3 secret key
-    pub fn public_key(&self) -> PublicKey {
-        PublicKey(*self.0.verifying_key())
     }
 }
 

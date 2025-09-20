@@ -4,7 +4,7 @@ use std::str::FromStr;
 use libtest_mimic::{Arguments, Failed, Trial};
 use paseto_core::key::{Key, KeyId, KeyText};
 use paseto_core::version::Marker;
-use paseto_v4::{LocalKey, PublicKey, SecretKey, V4};
+use paseto_v4_sodium::{LocalKey, PublicKey, SecretKey, V4};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 

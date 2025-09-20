@@ -7,10 +7,8 @@ use paseto_v4::{
     DecryptedToken, EncryptedToken, LocalKey, PublicKey, SecretKey, SignedToken, VerifiedToken,
 };
 use rand_core::impls::{next_u32_via_fill, next_u64_via_fill};
-use serde::{
-    Deserialize,
-    de::{DeserializeOwned, Visitor},
-};
+use serde::Deserialize;
+use serde::de::{DeserializeOwned, Visitor};
 
 fn main() {
     let mut args = Arguments::from_args();
@@ -111,7 +109,7 @@ impl PasetoTest {
                     .encrypt(
                         &key,
                         implicit_assertion.as_bytes(),
-                        FakeRng {
+                        &mut FakeRng {
                             bytes: nonce,
                             start: 0,
                         },
@@ -174,7 +172,11 @@ impl PasetoTest {
 
                 let token = VerifiedToken::new(token.message).with_footer(token.footer);
                 let token = token
-                    .sign(&secret_key, implicit_assertion.as_bytes(), FakeRng::new([]))
+                    .sign(
+                        &secret_key,
+                        implicit_assertion.as_bytes(),
+                        &mut FakeRng::new([]),
+                    )
                     .unwrap();
 
                 assert_eq!(token.to_string(), token_str);

@@ -1,30 +1,90 @@
+//! PASETO v4 (sodium)
+//!
+//!
+//! ```
+//! use paseto_v4::{SecretKey, PublicKey, SealingKey, SignedToken, VerifiedToken};
+//! use paseto_json::{RegisteredClaims, jiff};
+//! use rand::rngs::OsRng;
+//!
+//! // create a new keypair
+//! let secret_key = SecretKey::random(&mut OsRng).unwrap();
+//! let public_key = secret_key.unsealing_key();
+//!
+//! // create a set of token claims
+//! let now = jiff::Timestamp::now();
+//! let claims = RegisteredClaims {
+//!     iss: Some("https://paseto.conrad.cafe/".to_string()),
+//!     iat: Some(now),
+//!     nbf: Some(now),
+//!     exp: Some(now + std::time::Duration::from_secs(3600)),
+//!     sub: Some("conradludgate".to_string()),
+//!     ..RegisteredClaims::default()
+//! };
+//!
+//! // create and sign a new token
+//! let signed_token = VerifiedToken::new(claims).sign(&secret_key, &[], &mut OsRng).unwrap();
+//!
+//! // serialize the token.
+//! let token = signed_token.to_string();
+//!
+//! // serialize the public key.
+//! let key = public_key.to_string();
+//!
+//! // ...
+//!
+//! // parse the token
+//! let signed_token: SignedToken<RegisteredClaims> = token.parse().unwrap();
+//!
+//! // parse the key
+//! let public_key: PublicKey = key.parse().unwrap();
+//!
+//! // verify the token
+//! let verified_token = signed_token.verify(&public_key, &[]).unwrap();
+//!
+//! // TODO: verify the claims
+//! let now = jiff::Timestamp::now();
+//! if let Some(exp) = verified_token.message.exp && exp < now {
+//!     panic!("expired");
+//! }
+//! if let Some(nbf) = verified_token.message.nbf && now < nbf {
+//!     panic!("not yet available");
+//! }
+//! ```
+
+use core::fmt;
+
 use blake2::{Blake2b, Blake2bMac};
 use chacha20::XChaCha20;
 use cipher::{ArrayLength, StreamCipher};
-use digest::{
-    Mac,
-    consts::{U32, U33, U56, U64},
-    typenum::{IsLessOrEqual, LeEq, NonZero},
-};
+use digest::Mac;
+use digest::consts::{U32, U33, U56, U64};
+use digest::typenum::{IsLessOrEqual, LeEq, NonZero};
 use ed25519_dalek::Signature;
-use generic_array::{GenericArray, sequence::Split};
-use paseto_core::{
-    PasetoError,
-    key::{Key, SealingKey, UnsealingKey},
-    version::{Local, Marker, Public, Secret},
-};
-use paseto_core::{
-    pae::{WriteBytes, pre_auth_encode},
-    rand_core,
-};
+use generic_array::GenericArray;
+use generic_array::sequence::Split;
+pub use paseto_core::PasetoError;
+use paseto_core::key::KeyText;
+pub use paseto_core::key::{Key, SealingKey, UnsealingKey};
+use paseto_core::pae::{WriteBytes, pre_auth_encode};
+use paseto_core::rand_core;
+use paseto_core::version::{Local, Marker, Public, Secret};
 
 pub struct SecretKey(
     ed25519_dalek::SecretKey,
     ed25519_dalek::hazmat::ExpandedSecretKey,
 );
 
+impl Clone for SecretKey {
+    fn clone(&self) -> Self {
+        let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(&self.0);
+        Self(self.0, esk)
+    }
+}
+
+#[derive(Clone)]
 pub struct PublicKey(ed25519_dalek::VerifyingKey);
 
+#[derive(Clone)]
 pub struct LocalKey(GenericArray<u8, U32>);
 
 pub struct V4;
@@ -67,6 +127,13 @@ impl Key for LocalKey {
     }
 }
 
+impl core::str::FromStr for LocalKey {
+    type Err = PasetoError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        KeyText::from_str(s).and_then(|k| k.decode())
+    }
+}
+
 impl Key for PublicKey {
     type Version = V4;
     type KeyType = Public;
@@ -76,6 +143,19 @@ impl Key for PublicKey {
     }
     fn encode(&self) -> Box<[u8]> {
         self.0.as_bytes().to_vec().into_boxed_slice()
+    }
+}
+
+impl fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        KeyText::from(self).fmt(f)
+    }
+}
+
+impl core::str::FromStr for PublicKey {
+    type Err = PasetoError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        KeyText::from_str(s).and_then(|k| k.decode())
     }
 }
 
@@ -90,8 +170,15 @@ impl Key for SecretKey {
     fn encode(&self) -> Box<[u8]> {
         let mut bytes = Vec::with_capacity(64);
         bytes.extend_from_slice(&self.0);
-        bytes.extend_from_slice(self.public_key().0.as_bytes());
+        bytes.extend_from_slice(self.unsealing_key().0.as_bytes());
         bytes.into_boxed_slice()
+    }
+}
+
+impl core::str::FromStr for SecretKey {
+    type Err = PasetoError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        KeyText::from_str(s).and_then(|k| k.decode())
     }
 }
 
@@ -110,7 +197,19 @@ impl LocalKey {
 }
 
 impl SealingKey<Local> for LocalKey {
-    fn nonce(mut rng: impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
+    type UnsealingKey = Self;
+    fn unsealing_key(&self) -> Self::UnsealingKey {
+        Self(self.0)
+    }
+
+    fn random(rng: &mut impl rand_core::TryCryptoRng) -> Result<Self, PasetoError> {
+        let mut bytes = [0; 32];
+        rng.try_fill_bytes(&mut bytes)
+            .map_err(|_| PasetoError::CryptoError)?;
+        Ok(Self(bytes.into()))
+    }
+
+    fn nonce(rng: &mut impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
         let mut nonce = [0; 32];
         rng.try_fill_bytes(&mut nonce)
             .map_err(|_| PasetoError::CryptoError)?;
@@ -167,7 +266,19 @@ impl UnsealingKey<Local> for LocalKey {
 }
 
 impl SealingKey<Public> for SecretKey {
-    fn nonce(_: impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
+    type UnsealingKey = PublicKey;
+    fn unsealing_key(&self) -> Self::UnsealingKey {
+        PublicKey((&self.1).into())
+    }
+
+    fn random(rng: &mut impl rand_core::TryCryptoRng) -> Result<Self, PasetoError> {
+        let mut secret_key = [0; 32];
+        rng.try_fill_bytes(&mut secret_key)
+            .map_err(|_| PasetoError::CryptoError)?;
+        Ok(Self::from_secret_key(secret_key))
+    }
+
+    fn nonce(_: &mut impl rand_core::TryCryptoRng) -> Result<Vec<u8>, PasetoError> {
         Ok(Vec::with_capacity(32))
     }
 
@@ -225,7 +336,7 @@ where
     mac.finalize().into_bytes()
 }
 
-pub struct PreAuthEncodeDigest<'a, M: digest::Update>(pub &'a mut M);
+struct PreAuthEncodeDigest<'a, M: digest::Update>(pub &'a mut M);
 impl<'a, M: digest::Update> WriteBytes for PreAuthEncodeDigest<'a, M> {
     fn write(&mut self, slice: &[u8]) {
         self.0.update(slice)
@@ -341,7 +452,7 @@ impl SecretKey {
         let key = Self::from_secret_key(*secret_key);
         let verifying_key = PublicKey::from_public_key(verifying_key)?;
 
-        if key.public_key().0 != verifying_key.0 {
+        if key.unsealing_key().0 != verifying_key.0 {
             return Err(PasetoError::InvalidKey);
         }
 
@@ -362,11 +473,6 @@ impl SecretKey {
     pub fn from_secret_key(key: [u8; 32]) -> Self {
         let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(&key);
         Self(key, esk)
-    }
-
-    /// Get the corresponding V4 public key for this V4 secret key
-    pub fn public_key(&self) -> PublicKey {
-        PublicKey((&self.1).into())
     }
 }
 

@@ -3,8 +3,8 @@ use std::fs;
 use libtest_mimic::{Arguments, Failed, Trial};
 use paseto_core::rand_core;
 use paseto_json::Json;
-use paseto_v3::{
-    DecryptedToken, EncryptedToken, LocalKey, PublicKey, SecretKey, SignedToken, VerifiedToken,
+use paseto_v4_sodium::{
+    DecryptedToken, EncryptedToken, Key, LocalKey, PublicKey, SecretKey, SignedToken, VerifiedToken,
 };
 use rand_core::impls::{next_u32_via_fill, next_u64_via_fill};
 use serde::Deserialize;
@@ -52,15 +52,13 @@ struct PasetoTest {
 
 impl PasetoTest {
     fn add_tests(tests: &mut Vec<Trial>) {
-        let test_file: TestFile<Self> = read_test("v3.json");
+        let test_file: TestFile<Self> = read_test("v4.json");
         for test in test_file.tests {
-            tests.push(Trial::test(test.name.clone(), || {
-                test.test_data.test(test.name)
-            }));
+            tests.push(Trial::test(test.name, || test.test_data.test()));
         }
     }
 
-    fn test(self, name: String) -> Result<(), Failed> {
+    fn test(self) -> Result<(), Failed> {
         match self {
             PasetoTest {
                 token,
@@ -130,7 +128,7 @@ impl PasetoTest {
                 result: TestResult::Failure { .. },
             } => {
                 let public_key = hex::decode(public_key).unwrap();
-                let public_key = PublicKey::from_sec1_bytes(&public_key).unwrap();
+                let public_key = PublicKey::decode(&public_key).unwrap();
 
                 let Ok(token): Result<SignedToken<Json<serde_json::Value>, Vec<u8>>, _> =
                     token.parse()
@@ -158,8 +156,8 @@ impl PasetoTest {
                 let public_key = hex::decode(public_key).unwrap();
                 let secret_key = hex::decode(secret_key).unwrap();
 
-                let public_key = PublicKey::from_sec1_bytes(&public_key).unwrap();
-                let secret_key = SecretKey::from_bytes(&secret_key).unwrap();
+                let public_key = PublicKey::decode(&public_key).unwrap();
+                let secret_key = SecretKey::decode(&secret_key).unwrap();
 
                 let token: SignedToken<Json<serde_json::Value>, Vec<u8>> =
                     token_str.parse().unwrap();
@@ -181,22 +179,7 @@ impl PasetoTest {
                     )
                     .unwrap();
 
-                // 3-S-1 and 3-S-3 are not using deterministic signatures.
-                let token_str = match &*name {
-                    "3-S-1" => {
-                        "v3.public.eyJkYXRhIjoidGhpcyBpcyBhIHNpZ25lZCBtZXNzYWdlIiwiZXhwIjoiMjAyMi0wMS0wMVQwMDowMDowMCswMDowMCJ9qqEwwrKHKi5lJ7b9MBKc0G4MGZy0ptUiMv3lAUAaz-JY_zjoqBSIxMxhfAoeNYiSNQgr7UcEF1xwpZKxhyY-wbsthTWhto85XytcCWlRUCrs3ct_Wd23Tuq_0i-1My8S"
-                    }
-                    "3-S-3" => {
-                        "v3.public.eyJkYXRhIjoidGhpcyBpcyBhIHNpZ25lZCBtZXNzYWdlIiwiZXhwIjoiMjAyMi0wMS0wMVQwMDowMDowMCswMDowMCJ94SjWIbjmS7715GjLSnHnpJrC9Z-cnwK45dmvnVvCRQDCCKAXaKEopTajX0DKYx1XVUFfjsigVTj09_kd-HhxpCcaSBXyVi5DeSg1b8Wcl174ytw9OzjHe15_AxELCuhc.eyJraWQiOiJkWWtJU3lseFFlZWNFY0hFTGZ6Rjg4VVpyd2JMb2xOaUNkcHpVSEd3OVVxbiJ9"
-                    }
-                    _ => &token_str,
-                };
-
                 assert_eq!(token.to_string(), token_str);
-
-                token
-                    .verify(&public_key, implicit_assertion.as_bytes())
-                    .unwrap();
 
                 Ok(())
             }

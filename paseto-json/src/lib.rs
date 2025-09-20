@@ -1,11 +1,10 @@
 use core::fmt;
 
+pub use jiff;
 use paseto_core::encodings::{Footer, Payload};
-use serde_core::{
-    Deserialize, Deserializer, Serialize, Serializer,
-    de::{DeserializeOwned, MapAccess, Visitor},
-    ser::SerializeStruct,
-};
+use serde_core::de::{DeserializeOwned, MapAccess, Visitor};
+use serde_core::ser::SerializeStruct;
+use serde_core::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// `Json` is a type wrapper to implement `Footer` for all types that implement
 /// [`serde::Serialize`] and [`serde::Deserialize`]
@@ -45,10 +44,24 @@ impl<M: Serialize + DeserializeOwned> Payload for Json<M> {
     fn decode(payload: &[u8]) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         serde_json::from_slice(payload)
             .map_err(From::from)
-            .map(Json)
+            .map(Self)
     }
 }
 
+impl Payload for RegisteredClaims {
+    /// JSON is the standard payload and requires no version suffix
+    const SUFFIX: &'static str = "";
+
+    fn encode(self, writer: impl std::io::Write) -> Result<(), std::io::Error> {
+        serde_json::to_writer(writer, &self).map_err(std::io::Error::from)
+    }
+
+    fn decode(payload: &[u8]) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        serde_json::from_slice(payload).map_err(From::from)
+    }
+}
+
+#[derive(Default, Clone, Debug)]
 pub struct RegisteredClaims {
     pub iss: Option<String>,
     pub sub: Option<String>,

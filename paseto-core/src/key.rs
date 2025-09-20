@@ -9,7 +9,7 @@ use crate::PasetoError;
 use crate::version::{self, Marker};
 
 /// Defines a PASERK key type
-pub trait Key: Sized {
+pub trait Key: Clone {
     type Version: version::Version;
     type KeyType: Marker;
 
@@ -18,10 +18,15 @@ pub trait Key: Sized {
 }
 
 /// Defines a secret PASETO key that can be used to create PASETO tokens.
-/// 
-/// We define "sealing" as encrypting or deriving a new signature. 
+///
+/// We define "sealing" as encrypting or deriving a new signature.
 pub trait SealingKey<Purpose>: Key {
-    fn nonce(rng: impl TryCryptoRng) -> Result<Vec<u8>, PasetoError>;
+    type UnsealingKey: UnsealingKey<Purpose, Version = Self::Version>;
+    fn unsealing_key(&self) -> Self::UnsealingKey;
+
+    fn random(rng: &mut impl TryCryptoRng) -> Result<Self, PasetoError>;
+
+    fn nonce(rng: &mut impl TryCryptoRng) -> Result<Vec<u8>, PasetoError>;
 
     fn seal(
         &self,
@@ -33,8 +38,8 @@ pub trait SealingKey<Purpose>: Key {
 }
 
 /// Defines a PASETO key that can be used to validate and read PASETO tokens.
-/// 
-/// We define "unsealing" as decrypting or validating a signature. 
+///
+/// We define "unsealing" as decrypting or validating a signature.
 pub trait UnsealingKey<Purpose>: Key {
     fn unseal<'a>(
         &self,
@@ -59,7 +64,7 @@ impl<K: Key> PartialEq for KeyId<K> {
 
 impl<K: Key> PartialOrd for KeyId<K> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.id.cmp(&other.id))
+        Some(self.cmp(other))
     }
 }
 
@@ -90,7 +95,7 @@ impl<K: Key> From<&KeyText<K>> for KeyId<K> {
 }
 
 /// A plaintext encoding of a key.
-/// 
+///
 /// Be advised that this encoding has no extra security, so it is not safe to transport as is.
 pub struct KeyText<K: Key> {
     data: Box<[u8]>,
@@ -105,7 +110,7 @@ impl<K: Key> PartialEq for KeyText<K> {
 
 impl<K: Key> PartialOrd for KeyText<K> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.data.cmp(&other.data))
+        Some(self.cmp(other))
     }
 }
 

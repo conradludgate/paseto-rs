@@ -1,9 +1,12 @@
-use std::{fs, str::FromStr};
+use std::fs;
+use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::{key::{Key, KeyId, KeyText}, version::Marker};
+use paseto_core::key::{Key, KeyId, KeyText};
+use paseto_core::version::Marker;
 use paseto_v3::{LocalKey, PublicKey, SecretKey, V3};
-use serde::{Deserialize, de::DeserializeOwned};
+use serde::Deserialize;
+use serde::de::DeserializeOwned;
 
 fn main() {
     let args = Arguments::from_args();

@@ -1,7 +1,5 @@
-use crate::{
-    key::{Key, SealingKey, UnsealingKey},
-    sealed::Sealed,
-};
+use crate::key::{Key, SealingKey, UnsealingKey};
+use crate::sealed::Sealed;
 
 /// An implementation of the PASETO/PASERK cryptographic schemes.
 pub trait Version {

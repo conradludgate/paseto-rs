@@ -1,19 +1,18 @@
 //! PASETO Message encodings.
 
 use core::fmt;
-use std::{
-    io::{self, Write},
-    marker::PhantomData,
-};
+use std::io::{self, Write};
+use std::marker::PhantomData;
 
 use base64ct::Encoding;
 
-use crate::{PasetoError, tokens::SealedToken, version};
+use crate::tokens::SealedToken;
+use crate::{PasetoError, version};
 
 /// A PASETO payload object.
 pub trait Payload: Sized {
     /// Suffix for this encoding type.
-    /// 
+    ///
     /// Currently the standard only supports JSON, which has no suffix.
     const SUFFIX: &'static str;
 

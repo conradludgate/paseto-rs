@@ -4,12 +4,9 @@ use std::marker::PhantomData;
 
 use rand_core::TryCryptoRng;
 
-use crate::{
-    PasetoError,
-    encodings::{Footer, Payload},
-    key::{SealingKey, UnsealingKey},
-    version,
-};
+use crate::encodings::{Footer, Payload};
+use crate::key::{SealingKey, UnsealingKey};
+use crate::{PasetoError, version};
 
 pub type SignedToken<V, M, F = ()> = SealedToken<V, version::Public, M, F>;
 pub type EncryptedToken<V, M, F = ()> = SealedToken<V, version::Local, M, F>;
@@ -118,7 +115,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
         self,
         key: &P::SealingKey<V>,
         aad: &[u8],
-        rng: impl TryCryptoRng,
+        rng: &mut impl TryCryptoRng,
     ) -> Result<SealedToken<V, P, M, F>, PasetoError> {
         let mut footer = Vec::new();
         self.footer
@@ -160,7 +157,7 @@ impl<V: version::Version, M: Payload, F: Footer> DecryptedToken<V, M, F> {
         self,
         key: &V::LocalKey,
         aad: &[u8],
-        rng: impl TryCryptoRng,
+        rng: &mut impl TryCryptoRng,
     ) -> Result<EncryptedToken<V, M, F>, PasetoError> {
         self.seal(key, aad, rng)
     }
@@ -183,7 +180,7 @@ impl<V: version::Version, M: Payload, F: Footer> VerifiedToken<V, M, F> {
         self,
         key: &V::SecretKey,
         aad: &[u8],
-        rng: impl TryCryptoRng,
+        rng: &mut impl TryCryptoRng,
     ) -> Result<SignedToken<V, M, F>, PasetoError> {
         self.seal(key, aad, rng)
     }
