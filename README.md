@@ -31,7 +31,7 @@ let claims = RegisteredClaims {
 };
 
 // create and sign a new token
-let signed_token = VerifiedToken::new(claims).sign(&secret_key, &[], &mut OsRng).unwrap();
+let signed_token = VerifiedToken::new(claims).sign(&secret_key, &mut OsRng).unwrap();
 
 // serialize the token.
 let token = signed_token.to_string();
@@ -50,7 +50,7 @@ let signed_token: SignedToken<RegisteredClaims> = token.parse().unwrap();
 let public_key: PublicKey = key.parse().unwrap();
 
 // verify the token
-let verified_token = signed_token.verify(&public_key, &[]).unwrap();
+let verified_token = signed_token.verify(&public_key).unwrap();
 
 // TODO: verify the claims
 let now = jiff::Timestamp::now();

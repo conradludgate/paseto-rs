@@ -8,9 +8,13 @@ use crate::encodings::{Footer, Payload};
 use crate::key::{SealingKey, UnsealingKey};
 use crate::{PasetoError, version};
 
+/// A token with publically readable data, but not yet verified
 pub type SignedToken<V, M, F = ()> = SealedToken<V, version::Public, M, F>;
+/// A token with secret data
 pub type EncryptedToken<V, M, F = ()> = SealedToken<V, version::Local, M, F>;
+/// A [`SignedToken`] that has been verified
 pub type VerifiedToken<V, M, F = ()> = UnsealedToken<V, version::Public, M, F>;
+/// An [`EncryptedToken`] that has been decrypted
 pub type DecryptedToken<V, M, F = ()> = UnsealedToken<V, version::Local, M, F>;
 
 /// An unsealed token.
@@ -142,7 +146,12 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
 
 impl<V: version::Version, M: Payload, F: Footer> EncryptedToken<V, M, F> {
     #[inline(always)]
-    pub fn decrypt(
+    pub fn decrypt(self, key: &V::LocalKey) -> Result<DecryptedToken<V, M, F>, PasetoError> {
+        self.decrypt_with_aad(key, &[])
+    }
+
+    #[inline(always)]
+    pub fn decrypt_with_aad(
         self,
         key: &V::LocalKey,
         aad: &[u8],
@@ -156,6 +165,15 @@ impl<V: version::Version, M: Payload, F: Footer> DecryptedToken<V, M, F> {
     pub fn encrypt(
         self,
         key: &V::LocalKey,
+        rng: &mut impl TryCryptoRng,
+    ) -> Result<EncryptedToken<V, M, F>, PasetoError> {
+        self.encrypt_with_aad(key, &[], rng)
+    }
+
+    #[inline(always)]
+    pub fn encrypt_with_aad(
+        self,
+        key: &V::LocalKey,
         aad: &[u8],
         rng: &mut impl TryCryptoRng,
     ) -> Result<EncryptedToken<V, M, F>, PasetoError> {
@@ -165,7 +183,12 @@ impl<V: version::Version, M: Payload, F: Footer> DecryptedToken<V, M, F> {
 
 impl<V: version::Version, M: Payload, F: Footer> SignedToken<V, M, F> {
     #[inline(always)]
-    pub fn verify(
+    pub fn verify(self, key: &V::PublicKey) -> Result<VerifiedToken<V, M, F>, PasetoError> {
+        self.verify_with_aad(key, &[])
+    }
+
+    #[inline(always)]
+    pub fn verify_with_aad(
         self,
         key: &V::PublicKey,
         aad: &[u8],
@@ -177,6 +200,15 @@ impl<V: version::Version, M: Payload, F: Footer> SignedToken<V, M, F> {
 impl<V: version::Version, M: Payload, F: Footer> VerifiedToken<V, M, F> {
     #[inline(always)]
     pub fn sign(
+        self,
+        key: &V::SecretKey,
+        rng: &mut impl TryCryptoRng,
+    ) -> Result<SignedToken<V, M, F>, PasetoError> {
+        self.sign_with_aad(key, &[], rng)
+    }
+
+    #[inline(always)]
+    pub fn sign_with_aad(
         self,
         key: &V::SecretKey,
         aad: &[u8],

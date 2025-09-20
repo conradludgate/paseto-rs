@@ -1,14 +1,10 @@
-use std::fs;
-
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::rand_core;
+use paseto_core::key::Key;
+use paseto_core::tokens::{DecryptedToken, EncryptedToken, SignedToken, VerifiedToken};
+use paseto_core::version::Version;
 use paseto_json::Json;
-use paseto_v3::{
-    DecryptedToken, EncryptedToken, LocalKey, PublicKey, SecretKey, SignedToken, VerifiedToken,
-};
-use rand_core::impls::{next_u32_via_fill, next_u64_via_fill};
+use paseto_test::{Bool, FakeRng, TestFile, read_test};
 use serde::Deserialize;
-use serde::de::{DeserializeOwned, Visitor};
 
 fn main() {
     let mut args = Arguments::from_args();
@@ -16,26 +12,11 @@ fn main() {
 
     let mut tests = vec![];
 
-    PasetoTest::add_tests(&mut tests);
+    PasetoTest::add_tests::<paseto_v3::V3>("paseto-v3", &mut tests);
+    PasetoTest::add_tests::<paseto_v4::V4>("paseto-v4", &mut tests);
+    PasetoTest::add_tests::<paseto_v4_sodium::V4>("paseto-v4-sodium", &mut tests);
+
     libtest_mimic::run(&args, tests).exit();
-}
-
-fn read_test<Test: DeserializeOwned>(v: &str) -> TestFile<Test> {
-    let path = format!("tests/vectors/{v}");
-    let file = fs::read_to_string(path).unwrap();
-    serde_json::from_str(&file).unwrap()
-}
-
-#[derive(Deserialize)]
-struct TestFile<T> {
-    tests: Vec<Test<T>>,
-}
-
-#[derive(Deserialize)]
-struct Test<T> {
-    name: String,
-    #[serde(flatten)]
-    test_data: T,
 }
 
 #[derive(Deserialize, Debug)]
@@ -51,16 +32,15 @@ struct PasetoTest {
 }
 
 impl PasetoTest {
-    fn add_tests(tests: &mut Vec<Trial>) {
-        let test_file: TestFile<Self> = read_test("v3.json");
+    fn add_tests<V: Version>(name: &str, tests: &mut Vec<Trial>) {
+        let test_file: TestFile<Self> = read_test(&format!("{}.json", V::PASETO_HEADER));
         for test in test_file.tests {
-            tests.push(Trial::test(test.name.clone(), || {
-                test.test_data.test(test.name)
-            }));
+            let name = format!("{name}::{}", test.name);
+            tests.push(Trial::test(name, || test.test_data.test::<V>(test.name)));
         }
     }
 
-    fn test(self, name: String) -> Result<(), Failed> {
+    fn test<V: Version>(self, name: String) -> Result<(), Failed> {
         match self {
             PasetoTest {
                 token,
@@ -70,16 +50,16 @@ impl PasetoTest {
                 result: TestResult::Failure { .. },
             } => {
                 let key = hex::decode(key).unwrap();
-                let key = LocalKey::from_bytes(key.try_into().unwrap());
+                let key = V::LocalKey::decode(&key).unwrap();
 
-                let Ok(token): Result<EncryptedToken<Json<serde_json::Value>, Vec<u8>>, _> =
+                let Ok(token): Result<EncryptedToken<V, Json<serde_json::Value>, Vec<u8>>, _> =
                     token.parse()
                 else {
                     return Ok(());
                 };
                 assert_eq!(token.unverified_footer(), footer.as_bytes());
 
-                match token.decrypt(&key, implicit_assertion.as_bytes()) {
+                match token.decrypt_with_aad(&key, implicit_assertion.as_bytes()) {
                     Ok(_) => Err("decrypting token should fail".into()),
                     Err(_) => Ok(()),
                 }
@@ -92,29 +72,28 @@ impl PasetoTest {
                 result: TestResult::Success { payload, .. },
             } => {
                 let key = hex::decode(key).unwrap();
-                let key = LocalKey::from_bytes(key.try_into().unwrap());
+                let key = V::LocalKey::decode(&key).unwrap();
 
-                let token: EncryptedToken<Json<serde_json::Value>, Vec<u8>> =
+                let token: EncryptedToken<V, Json<serde_json::Value>, Vec<u8>> =
                     token_str.parse().unwrap();
                 assert_eq!(token.unverified_footer(), footer.as_bytes());
 
-                let decrypted_token = token.decrypt(&key, implicit_assertion.as_bytes()).unwrap();
+                let decrypted_token = token
+                    .decrypt_with_aad(&key, implicit_assertion.as_bytes())
+                    .unwrap();
 
                 let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
                 assert_eq!(decrypted_token.message.0, payload);
 
                 let nonce: [u8; 32] = hex::decode(nonce).unwrap().try_into().unwrap();
 
-                let token = DecryptedToken::new(decrypted_token.message)
+                let token = DecryptedToken::<V, _>::new(decrypted_token.message)
                     .with_footer(decrypted_token.footer);
                 let token = token
-                    .encrypt(
+                    .encrypt_with_aad(
                         &key,
                         implicit_assertion.as_bytes(),
-                        &mut FakeRng {
-                            bytes: nonce,
-                            start: 0,
-                        },
+                        &mut FakeRng::new(nonce),
                     )
                     .unwrap();
 
@@ -130,16 +109,16 @@ impl PasetoTest {
                 result: TestResult::Failure { .. },
             } => {
                 let public_key = hex::decode(public_key).unwrap();
-                let public_key = PublicKey::from_sec1_bytes(&public_key).unwrap();
+                let public_key = V::PublicKey::decode(&public_key).unwrap();
 
-                let Ok(token): Result<SignedToken<Json<serde_json::Value>, Vec<u8>>, _> =
+                let Ok(token): Result<SignedToken<V, Json<serde_json::Value>, Vec<u8>>, _> =
                     token.parse()
                 else {
                     return Ok(());
                 };
                 assert_eq!(token.unverified_footer(), footer.as_bytes());
 
-                match token.verify(&public_key, implicit_assertion.as_bytes()) {
+                match token.verify_with_aad(&public_key, implicit_assertion.as_bytes()) {
                     Ok(_) => Err("verifying token should fail".into()),
                     Err(_) => Ok(()),
                 }
@@ -158,23 +137,23 @@ impl PasetoTest {
                 let public_key = hex::decode(public_key).unwrap();
                 let secret_key = hex::decode(secret_key).unwrap();
 
-                let public_key = PublicKey::from_sec1_bytes(&public_key).unwrap();
-                let secret_key = SecretKey::from_bytes(&secret_key).unwrap();
+                let public_key = V::PublicKey::decode(&public_key).unwrap();
+                let secret_key = V::SecretKey::decode(&secret_key).unwrap();
 
-                let token: SignedToken<Json<serde_json::Value>, Vec<u8>> =
+                let token: SignedToken<V, Json<serde_json::Value>, Vec<u8>> =
                     token_str.parse().unwrap();
                 assert_eq!(token.unverified_footer(), footer.as_bytes());
 
                 let token = token
-                    .verify(&public_key, implicit_assertion.as_bytes())
+                    .verify_with_aad(&public_key, implicit_assertion.as_bytes())
                     .unwrap();
 
                 let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
                 assert_eq!(token.message.0, payload);
 
-                let token = VerifiedToken::new(token.message).with_footer(token.footer);
+                let token = VerifiedToken::<V, _>::new(token.message).with_footer(token.footer);
                 let token = token
-                    .sign(
+                    .sign_with_aad(
                         &secret_key,
                         implicit_assertion.as_bytes(),
                         &mut FakeRng::new([]),
@@ -195,7 +174,7 @@ impl PasetoTest {
                 assert_eq!(token.to_string(), token_str);
 
                 token
-                    .verify(&public_key, implicit_assertion.as_bytes())
+                    .verify_with_aad(&public_key, implicit_assertion.as_bytes())
                     .unwrap();
 
                 Ok(())
@@ -216,37 +195,6 @@ enum PasetoPurpose {
     },
 }
 
-#[derive(Debug)]
-struct Bool<const B: bool>;
-
-impl<'a, const B: bool> Deserialize<'a> for Bool<B> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'a>,
-    {
-        struct BoolVisitor<const B: bool>;
-
-        impl<'a, const B: bool> Visitor<'a> for BoolVisitor<B> {
-            type Value = Bool<B>;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(formatter, "{B}")
-            }
-
-            fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                (v == B)
-                    .then_some(Bool)
-                    .ok_or_else(|| E::custom(format!("expected {B}, got {v}")))
-            }
-        }
-
-        deserializer.deserialize_bool(BoolVisitor)
-    }
-}
-
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 enum TestResult {
@@ -264,39 +212,3 @@ enum TestResult {
         payload: (),
     },
 }
-
-#[derive(Clone, Debug)]
-/// a consistent rng store
-struct FakeRng<const N: usize> {
-    pub bytes: [u8; N],
-    pub start: usize,
-}
-
-impl<const N: usize> FakeRng<N> {
-    fn new(bytes: [u8; N]) -> Self {
-        Self { bytes, start: 0 }
-    }
-}
-
-impl<const N: usize> rand_core::RngCore for FakeRng<N> {
-    fn next_u32(&mut self) -> u32 {
-        next_u32_via_fill(self)
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        next_u64_via_fill(self)
-    }
-
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        let remaining = N - self.start;
-        let requested = dest.len();
-        if requested > remaining {
-            panic!("not enough entropy");
-        }
-        dest.copy_from_slice(&self.bytes[self.start..self.start + requested]);
-        self.start += requested;
-    }
-}
-
-// not really
-impl<const N: usize> rand_core::CryptoRng for FakeRng<N> {}

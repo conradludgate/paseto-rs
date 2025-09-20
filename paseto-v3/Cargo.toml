@@ -24,18 +24,3 @@ aws-lc-rs = "1.14"
 [dev-dependencies]
 paseto-json.workspace = true
 rand = "0.9"
-
-hex = "0.4"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-libtest-mimic = "0.8.1"
-
-[[test]]
-name = "paseto-test-vectors"
-path = "tests/paseto.rs"
-harness = false
-
-[[test]]
-name = "paserk-test-vectors"
-path = "tests/paserk.rs"
-harness = false

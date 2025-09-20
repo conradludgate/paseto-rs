@@ -1,3 +1,5 @@
+use core::fmt;
+
 use crate::key::{Key, SealingKey, UnsealingKey};
 use crate::sealed::Sealed;
 
@@ -11,7 +13,7 @@ pub trait Version {
     /// A symmetric key used to encrypt and decrypt tokens.
     type LocalKey: SealingKey<Local> + UnsealingKey<Local> + Key<Version = Self, KeyType = Local>;
     /// An asymmetric key used to validate token signatures.
-    type PublicKey: UnsealingKey<Public> + Key<Version = Self, KeyType = Public>;
+    type PublicKey: UnsealingKey<Public> + Key<Version = Self, KeyType = Public> + fmt::Display;
     /// An asymmetric key used to create token signatures.
     type SecretKey: SealingKey<Public> + Key<Version = Self, KeyType = Secret>;
 

@@ -1,0 +1,31 @@
+[package]
+name = "paseto-test"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+paseto-core.workspace = true
+paseto-json.workspace = true
+paseto-v3.workspace = true
+paseto-v4.workspace = true
+paseto-v4-sodium.workspace = true
+
+rand = "0.9"
+
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+libtest-mimic = "0.8.1"
+
+[[test]]
+name = "paseto"
+harness = false
+
+[[test]]
+name = "key_text"
+harness = false
+
+[[test]]
+name = "key_id"
+harness = false
