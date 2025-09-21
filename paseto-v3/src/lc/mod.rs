@@ -2,13 +2,6 @@ mod ptr;
 
 use std::ptr::{null, null_mut};
 
-use aws_lc_sys::{
-    BN_bin2bn, BN_bn2bin, BN_num_bytes, EC_GROUP, EC_KEY, EC_KEY_get0_private_key,
-    EC_KEY_get0_public_key, EC_KEY_new, EC_KEY_set_group, EC_KEY_set_private_key,
-    EC_KEY_set_public_key, EC_POINT, EC_POINT_mul, EC_POINT_new, EC_POINT_oct2point,
-    EC_POINT_point2oct, EC_group_p384, ECDSA_SIG, ECDSA_SIG_from_bytes, ECDSA_SIG_get0,
-    ECDSA_SIG_new, ECDSA_SIG_set0, ECDSA_SIG_to_bytes, ECDSA_sign, ECDSA_size, ECDSA_verify,
-};
 use paseto_core::PasetoError;
 
 use crate::lc::ptr::{ConstPointer, DetachableLcPtr, LcPtr};
@@ -17,6 +10,14 @@ use crate::lc::ptr::{ConstPointer, DetachableLcPtr, LcPtr};
 extern crate aws_lc_fips_sys as aws_lc;
 #[cfg(not(feature = "fips"))]
 extern crate aws_lc_sys as aws_lc;
+
+use aws_lc::{
+    BN_bin2bn, BN_bn2bin, BN_num_bytes, EC_GROUP, EC_KEY, EC_KEY_get0_private_key,
+    EC_KEY_get0_public_key, EC_KEY_new, EC_KEY_set_group, EC_KEY_set_private_key,
+    EC_KEY_set_public_key, EC_POINT, EC_POINT_mul, EC_POINT_new, EC_POINT_oct2point,
+    EC_POINT_point2oct, EC_group_p384, ECDSA_SIG, ECDSA_SIG_from_bytes, ECDSA_SIG_get0,
+    ECDSA_SIG_new, ECDSA_SIG_set0, ECDSA_SIG_to_bytes, ECDSA_sign, ECDSA_size, ECDSA_verify,
+};
 
 pub struct SigningKey {
     key: LcPtr<EC_KEY>,
@@ -298,7 +299,7 @@ pub fn compressed_pub_key(p: ConstPointer<EC_POINT>) -> [u8; 49] {
         EC_POINT_point2oct(
             *g,
             *p,
-            aws_lc_sys::point_conversion_form_t::POINT_CONVERSION_COMPRESSED,
+            aws_lc::point_conversion_form_t::POINT_CONVERSION_COMPRESSED,
             out.as_mut_ptr(),
             out.len(),
             null_mut(),
