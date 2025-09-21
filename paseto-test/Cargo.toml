@@ -8,6 +8,7 @@ publish = false
 paseto-core.workspace = true
 paseto-json.workspace = true
 paseto-v3.workspace = true
+paseto-v3-aws-lc.workspace = true
 paseto-v4.workspace = true
 paseto-v4-sodium.workspace = true
 

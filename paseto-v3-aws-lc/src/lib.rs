@@ -1,8 +1,8 @@
-//! PASETO v3 (RustCrypto)
+//! PASETO v3 (aws-lc-rs)
 //!
 //! ```
-//! use paseto_v3::{SignedToken, VerifiedToken};
-//! use paseto_v3::key::{SecretKey, PublicKey, SealingKey};
+//! use paseto_v3_aws_lc::{SignedToken, VerifiedToken};
+//! use paseto_v3_aws_lc::key::{SecretKey, PublicKey, SealingKey};
 //! use paseto_json::{RegisteredClaims, jiff};
 //!
 //! // create a new keypair
@@ -64,16 +64,16 @@ impl paseto_core::version::Version for V3 {
     type SecretKey = key::SecretKey;
 
     fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33] {
-        use sha2::{Digest, Sha384};
+        use aws_lc_rs::digest::{self, SHA384};
 
-        let mut ctx = Sha384::new();
+        let mut ctx = digest::Context::new(&SHA384);
         ctx.update(Self::PASERK_HEADER.as_bytes());
         ctx.update(key_header.as_bytes());
         ctx.update(key_data);
-        let hash = ctx.finalize();
-        assert_eq!(hash.len(), 48);
+        let hash = ctx.finish();
+        assert_eq!(hash.as_ref().len(), 48);
 
-        hash[..33].try_into().unwrap()
+        hash.as_ref()[..33].try_into().unwrap()
     }
 }
 
@@ -86,23 +86,23 @@ pub type VerifiedToken<M, F = ()> = paseto_core::tokens::VerifiedToken<V3, M, F>
 /// An [`EncryptedToken`] that has been decrypted
 pub type DecryptedToken<M, F = ()> = paseto_core::tokens::DecryptedToken<V3, M, F>;
 
+mod lc;
 pub mod key {
     use core::fmt;
 
-    use cipher::{ArrayLength, StreamCipher};
-    use generic_array::GenericArray;
-    use generic_array::sequence::Split;
-    use hmac::{Hmac, Mac};
-    use p384::U48;
-    use p384::ecdsa::signature::{DigestSigner, DigestVerifier};
-    use p384::ecdsa::{Signature, SigningKey, VerifyingKey};
+    use aws_lc_rs::cipher::{AES_256, DecryptingKey, EncryptingKey, UnboundCipherKey};
+    use aws_lc_rs::constant_time;
+    use aws_lc_rs::digest::{self, Digest, SHA384};
+    use aws_lc_rs::hkdf::{self, HKDF_SHA384, KeyType};
+    use aws_lc_rs::hmac::{self, HMAC_SHA384};
+    use aws_lc_rs::iv::FixedLength;
+    use aws_lc_rs::rand::{SecureRandom, SystemRandom};
     use paseto_core::PasetoError;
     pub use paseto_core::key::{Key, KeyId, KeyText, SealingKey, UnsealingKey};
     use paseto_core::pae::{WriteBytes, pre_auth_encode};
     use paseto_core::version::{Local, Marker, Public, Secret};
-    use rand::TryRngCore;
-    use rand::rngs::OsRng;
-    use sha2::{Digest, Sha384};
+
+    use crate::lc::{Signature, SigningKey, VerifyingKey};
 
     #[derive(Clone)]
     pub struct SecretKey(SigningKey);
@@ -139,12 +139,11 @@ pub mod key {
         type KeyType = Public;
 
         fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
-            VerifyingKey::from_sec1_bytes(bytes)
-                .map(Self)
-                .map_err(|_| PasetoError::InvalidKey)
+            let pk = VerifyingKey::from_sec1_bytes(bytes)?;
+            Ok(PublicKey(pk))
         }
         fn encode(&self) -> Box<[u8]> {
-            self.0.to_encoded_point(true).to_bytes()
+            self.0.compressed_pub_key().to_vec().into_boxed_slice()
         }
     }
 
@@ -166,11 +165,10 @@ pub mod key {
         type KeyType = Secret;
 
         fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
-            let sk = p384::SecretKey::from_slice(bytes).map_err(|_| PasetoError::InvalidKey)?;
-            Ok(SecretKey(sk.into()))
+            SigningKey::from_sec1_bytes(bytes).map(Self)
         }
         fn encode(&self) -> Box<[u8]> {
-            self.0.to_bytes().to_vec().into_boxed_slice()
+            self.0.encode().to_vec().into_boxed_slice()
         }
     }
 
@@ -182,16 +180,21 @@ pub mod key {
     }
 
     impl LocalKey {
-        fn keys(&self, nonce: &[u8; 32]) -> (ctr::Ctr64BE<aes::Aes256>, hmac::Hmac<sha2::Sha384>) {
-            use cipher::KeyIvInit;
-            use digest::Mac;
+        fn keys(
+            &self,
+            nonce: &[u8],
+        ) -> Result<((UnboundCipherKey, FixedLength<16>), hmac::Key), PasetoError> {
+            let aead_key = kdf::<48>(&self.0, "paseto-encryption-key", nonce)?;
+            let (ek, n2) = aead_key
+                .split_last_chunk::<16>()
+                .ok_or(PasetoError::CryptoError)?;
+            let ak = kdf::<48>(&self.0, "paseto-auth-key-for-aead", nonce)?;
 
-            let (ek, n2) = kdf::<U48>(&self.0, "paseto-encryption-key", nonce).split();
-            let ak: GenericArray<u8, U48> = kdf(&self.0, "paseto-auth-key-for-aead", nonce);
+            let key = UnboundCipherKey::new(&AES_256, ek).map_err(|_| PasetoError::CryptoError)?;
+            let iv = FixedLength::from(n2);
+            let mac = hmac::Key::new(HMAC_SHA384, &ak);
 
-            let cipher = ctr::Ctr64BE::<aes::Aes256>::new(&ek, &n2);
-            let mac = hmac::Hmac::new_from_slice(&ak).expect("key should be valid");
-            (cipher, mac)
+            Ok(((key, iv), mac))
         }
     }
 
@@ -203,16 +206,16 @@ pub mod key {
 
         fn random() -> Result<Self, PasetoError> {
             let mut bytes = [0; 32];
-            OsRng
-                .try_fill_bytes(&mut bytes)
+            SystemRandom::new()
+                .fill(&mut bytes)
                 .map_err(|_| PasetoError::CryptoError)?;
             Ok(Self(bytes))
         }
 
         fn nonce() -> Result<Vec<u8>, PasetoError> {
             let mut nonce = [0; 32];
-            OsRng
-                .try_fill_bytes(&mut nonce)
+            SystemRandom::new()
+                .fill(&mut nonce)
                 .map_err(|_| PasetoError::CryptoError)?;
 
             let mut payload = Vec::with_capacity(80);
@@ -227,14 +230,17 @@ pub mod key {
             footer: &[u8],
             aad: &[u8],
         ) -> Result<Vec<u8>, PasetoError> {
-            let (nonce, ciphertext) = payload
-                .split_first_chunk_mut::<32>()
-                .ok_or(PasetoError::InvalidToken)?;
+            let (nonce, ciphertext) = payload.split_at_mut(32);
 
-            let (mut cipher, mac) = self.keys(nonce);
-            cipher.apply_keystream(ciphertext);
-            let mac = preauth_local(mac, encoding, nonce, ciphertext, footer, aad);
-            payload.extend_from_slice(&mac.finalize().into_bytes());
+            let ((key, iv), mac) = self.keys(nonce)?;
+
+            EncryptingKey::ctr(key)
+                .map_err(|_| PasetoError::CryptoError)?
+                .less_safe_encrypt(ciphertext, aws_lc_rs::cipher::EncryptionContext::Iv128(iv))
+                .map_err(|_| PasetoError::CryptoError)?;
+
+            let tag = preauth_local(mac, encoding, nonce, ciphertext, footer, aad);
+            payload.extend_from_slice(tag.as_ref());
 
             Ok(payload)
         }
@@ -253,18 +259,19 @@ pub mod key {
                 return Err(PasetoError::InvalidToken);
             }
 
-            let (ciphertext, tag) = payload
-                .split_last_chunk_mut::<48>()
-                .ok_or(PasetoError::InvalidToken)?;
-            let (nonce, ciphertext) = ciphertext
-                .split_first_chunk_mut::<32>()
-                .ok_or(PasetoError::InvalidToken)?;
+            let (ciphertext, tag) = payload.split_at_mut(len - 48);
+            let (nonce, ciphertext) = ciphertext.split_at_mut(32);
 
-            let (mut cipher, mac) = self.keys(nonce);
-            let mac = preauth_local(mac, encoding, nonce, ciphertext, footer, aad);
-            mac.verify_slice(tag)
+            let ((key, iv), mac) = self.keys(nonce)?;
+
+            let actual_tag = preauth_local(mac, encoding, nonce, ciphertext, footer, aad);
+            constant_time::verify_slices_are_equal(actual_tag.as_ref(), tag)
                 .map_err(|_| PasetoError::CryptoError)?;
-            cipher.apply_keystream(ciphertext);
+
+            DecryptingKey::ctr(key)
+                .map_err(|_| PasetoError::CryptoError)?
+                .decrypt(ciphertext, aws_lc_rs::cipher::DecryptionContext::Iv128(iv))
+                .map_err(|_| PasetoError::CryptoError)?;
 
             Ok(ciphertext)
         }
@@ -273,18 +280,18 @@ pub mod key {
     impl SealingKey<Public> for SecretKey {
         type UnsealingKey = PublicKey;
         fn unsealing_key(&self) -> Self::UnsealingKey {
-            PublicKey(*self.0.verifying_key())
+            PublicKey(self.0.verifying_key())
         }
 
         fn random() -> Result<Self, PasetoError> {
-            let mut bytes = GenericArray::default();
+            let mut bytes = [0; 48];
             loop {
-                OsRng
-                    .try_fill_bytes(&mut bytes)
+                SystemRandom::new()
+                    .fill(&mut bytes)
                     .map_err(|_| PasetoError::CryptoError)?;
-                match SigningKey::from_bytes(&bytes).map(Self) {
-                    Err(_) => continue,
-                    Ok(key) => break Ok(key),
+                match SigningKey::from_sec1_bytes(&bytes).map(Self) {
+                    Err(PasetoError::InvalidKey) => continue,
+                    res => break res,
                 }
             }
         }
@@ -300,11 +307,15 @@ pub mod key {
             footer: &[u8],
             aad: &[u8],
         ) -> Result<Vec<u8>, PasetoError> {
-            let digest = preauth_public(self.0.verifying_key(), encoding, &payload, footer, aad);
-            let signature: Signature = self.0.sign_digest(digest);
-            let signature = signature.normalize_s().unwrap_or(signature);
-
-            payload.extend_from_slice(&signature.to_bytes());
+            let digest = preauth_public(
+                &self.0.compressed_pub_key(),
+                encoding,
+                &payload,
+                footer,
+                aad,
+            );
+            let signature = self.0.sign(digest.as_ref())?;
+            signature.append_to_vec(&mut payload)?;
 
             Ok(payload)
         }
@@ -318,46 +329,68 @@ pub mod key {
             footer: &[u8],
             aad: &[u8],
         ) -> Result<&'a [u8], PasetoError> {
-            let (cleartext, tag) = payload
-                .split_last_chunk::<96>()
-                .ok_or(PasetoError::InvalidToken)?;
+            let len = payload.len();
+            if len < 96 {
+                return Err(PasetoError::InvalidToken);
+            }
 
-            let signature =
-                Signature::from_bytes(tag[..].into()).map_err(|_| PasetoError::InvalidToken)?;
-            let digest = preauth_public(&self.0, encoding, cleartext, footer, aad);
-            DigestVerifier::<Sha384, Signature>::verify_digest(&self.0, digest, &signature)
+            let (cleartext, tag) = payload.split_at(len - 96);
+            let signature = Signature::from_bytes(tag).map_err(|_| PasetoError::InvalidToken)?;
+            let digest = preauth_public(
+                &self.0.compressed_pub_key(),
+                encoding,
+                cleartext,
+                footer,
+                aad,
+            );
+            self.0
+                .verify(digest.as_ref(), &signature)
                 .map_err(|_| PasetoError::CryptoError)?;
 
             Ok(cleartext)
         }
     }
 
-    fn kdf<O>(key: &[u8], sep: &'static str, nonce: &[u8]) -> GenericArray<u8, O>
-    where
-        O: ArrayLength<u8>,
-    {
-        let mut output = GenericArray::<u8, O>::default();
-        hkdf::Hkdf::<sha2::Sha384>::new(None, key)
-            .expand_multi_info(&[sep.as_bytes(), nonce], &mut output)
-            .unwrap();
-        output
+    fn kdf<const N: usize>(
+        key: &[u8],
+        sep: &'static str,
+        nonce: &[u8],
+    ) -> Result<[u8; N], PasetoError> {
+        struct Len<const N: usize>;
+        impl<const N: usize> KeyType for Len<N> {
+            fn len(&self) -> usize {
+                N
+            }
+        }
+
+        let ikm = [sep.as_bytes(), nonce];
+        let prk = hkdf::Salt::new(HKDF_SHA384, &[]).extract(key);
+        let okm = prk
+            .expand(&ikm, Len::<N>)
+            .map_err(|_| PasetoError::CryptoError)?;
+
+        let mut output = [0; N];
+        okm.fill(&mut output)
+            .map_err(|_| PasetoError::CryptoError)?;
+        Ok(output)
     }
+
     fn preauth_local(
-        mac: Hmac<Sha384>,
+        mac: hmac::Key,
         encoding: &'static str,
         nonce: &[u8],
         ciphertext: &[u8],
         footer: &[u8],
         aad: &[u8],
-    ) -> Hmac<Sha384> {
-        struct Context(Hmac<Sha384>);
+    ) -> hmac::Tag {
+        struct Context(hmac::Context);
         impl WriteBytes for Context {
             fn write(&mut self, slice: &[u8]) {
                 self.0.update(slice)
             }
         }
 
-        let mut ctx = Context(mac);
+        let mut ctx = Context(hmac::Context::with_key(&mac));
 
         pre_auth_encode(
             [
@@ -374,29 +407,27 @@ pub mod key {
             &mut ctx,
         );
 
-        ctx.0
+        ctx.0.sign()
     }
 
     fn preauth_public(
-        key: &VerifyingKey,
+        key: &[u8; 49],
         encoding: &'static str,
         cleartext: &[u8],
         footer: &[u8],
         aad: &[u8],
-    ) -> Sha384 {
-        struct Context(Sha384);
+    ) -> Digest {
+        struct Context(digest::Context);
         impl WriteBytes for Context {
             fn write(&mut self, slice: &[u8]) {
                 self.0.update(slice)
             }
         }
 
-        let key = key.to_encoded_point(true);
-
-        let mut ctx = Context(Sha384::new());
+        let mut ctx = Context(digest::Context::new(&SHA384));
         pre_auth_encode(
             [
-                &[key.as_bytes()],
+                &[key],
                 &[
                     "v3".as_bytes(),
                     encoding.as_bytes(),
@@ -408,6 +439,6 @@ pub mod key {
             ],
             &mut ctx,
         );
-        ctx.0
+        ctx.0.finish()
     }
 }

@@ -3,6 +3,7 @@ members = [
     "paseto-core",
     "paseto-json",
     "paseto-v3",
+    "paseto-v3-aws-lc",
     "paseto-v4",
     "paseto-v4-sodium",
     "paseto-test",
@@ -13,6 +14,7 @@ resolver = "3"
 paseto-core = { path = "paseto-core", version = "0.1.0-rc.2" }
 paseto-json = { path = "paseto-json", version = "0.1.0-rc.2" }
 paseto-v3 = { path = "paseto-v3", version = "0.1.0-rc.2" }
+paseto-v3-aws-lc = { path = "paseto-v3-aws-lc", version = "0.1.0-rc.2" }
 paseto-v4 = { path = "paseto-v4", version = "0.1.0-rc.2" }
 paseto-v4-sodium = { path = "paseto-v4-sodium", version = "0.1.0-rc.2" }
 
