@@ -86,6 +86,7 @@ pub type VerifiedToken<M, F = ()> = paseto_core::tokens::VerifiedToken<V3, M, F>
 /// An [`EncryptedToken`] that has been decrypted
 pub type DecryptedToken<M, F = ()> = paseto_core::tokens::DecryptedToken<V3, M, F>;
 
+mod lc;
 pub mod key {
     use core::fmt;
 
@@ -96,16 +97,18 @@ pub mod key {
     use aws_lc_rs::hmac::{self, HMAC_SHA384};
     use aws_lc_rs::iv::FixedLength;
     use aws_lc_rs::rand::{SecureRandom, SystemRandom};
-    use p384::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
     use paseto_core::PasetoError;
-    pub use paseto_core::key::{Key, KeyText, SealingKey, UnsealingKey};
+    pub use paseto_core::key::{Key, KeyId, KeyText, SealingKey, UnsealingKey};
     use paseto_core::pae::{WriteBytes, pre_auth_encode};
     use paseto_core::version::{Local, Marker, Public, Secret};
 
+    use crate::lc::{Signature, SigningKey, VerifyingKey};
+
     #[derive(Clone)]
-    pub struct SecretKey(p384::ecdsa::SigningKey);
+    pub struct SecretKey(SigningKey);
     #[derive(Clone)]
-    pub struct PublicKey(p384::ecdsa::VerifyingKey);
+    pub struct PublicKey(VerifyingKey);
+
     #[derive(Clone)]
     pub struct LocalKey([u8; 32]);
 
@@ -136,12 +139,11 @@ pub mod key {
         type KeyType = Public;
 
         fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
-            let pk =
-                p384::PublicKey::from_sec1_bytes(bytes).map_err(|_| PasetoError::InvalidKey)?;
-            Ok(PublicKey(pk.into()))
+            let pk = VerifyingKey::from_sec1_bytes(bytes)?;
+            Ok(PublicKey(pk))
         }
         fn encode(&self) -> Box<[u8]> {
-            self.0.to_encoded_point(true).to_bytes()
+            self.0.compressed_pub_key().to_vec().into_boxed_slice()
         }
     }
 
@@ -163,11 +165,10 @@ pub mod key {
         type KeyType = Secret;
 
         fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
-            let sk = p384::SecretKey::from_slice(bytes).map_err(|_| PasetoError::InvalidKey)?;
-            Ok(SecretKey(sk.into()))
+            SigningKey::from_sec1_bytes(bytes).map(Self)
         }
         fn encode(&self) -> Box<[u8]> {
-            self.0.to_bytes().to_vec().into_boxed_slice()
+            self.0.encode().to_vec().into_boxed_slice()
         }
     }
 
@@ -279,7 +280,7 @@ pub mod key {
     impl SealingKey<Public> for SecretKey {
         type UnsealingKey = PublicKey;
         fn unsealing_key(&self) -> Self::UnsealingKey {
-            PublicKey(*self.0.verifying_key())
+            PublicKey(self.0.verifying_key())
         }
 
         fn random() -> Result<Self, PasetoError> {
@@ -288,9 +289,9 @@ pub mod key {
                 SystemRandom::new()
                     .fill(&mut bytes)
                     .map_err(|_| PasetoError::CryptoError)?;
-                match p384::ecdsa::SigningKey::from_bytes(&bytes.into()) {
-                    Err(_) => continue,
-                    Ok(key) => break Ok(Self(key)),
+                match SigningKey::from_sec1_bytes(&bytes).map(Self) {
+                    Err(PasetoError::InvalidKey) => continue,
+                    res => break res,
                 }
             }
         }
@@ -306,14 +307,15 @@ pub mod key {
             footer: &[u8],
             aad: &[u8],
         ) -> Result<Vec<u8>, PasetoError> {
-            let digest = preauth_public(self.0.verifying_key(), encoding, &payload, footer, aad);
-            let signature: p384::ecdsa::Signature = self
-                .0
-                .sign_prehash(digest.as_ref())
-                .map_err(|_| PasetoError::CryptoError)?;
-            let signature = signature.normalize_s().unwrap_or(signature);
-
-            payload.extend_from_slice(&signature.to_bytes());
+            let digest = preauth_public(
+                &self.0.compressed_pub_key(),
+                encoding,
+                &payload,
+                footer,
+                aad,
+            );
+            let signature = self.0.sign(digest.as_ref())?;
+            signature.append_to_vec(&mut payload)?;
 
             Ok(payload)
         }
@@ -333,11 +335,16 @@ pub mod key {
             }
 
             let (cleartext, tag) = payload.split_at(len - 96);
-            let signature = p384::ecdsa::Signature::from_bytes(tag.into())
-                .map_err(|_| PasetoError::InvalidToken)?;
-            let digest = preauth_public(&self.0, encoding, cleartext, footer, aad);
+            let signature = Signature::from_bytes(tag).map_err(|_| PasetoError::InvalidToken)?;
+            let digest = preauth_public(
+                &self.0.compressed_pub_key(),
+                encoding,
+                cleartext,
+                footer,
+                aad,
+            );
             self.0
-                .verify_prehash(digest.as_ref(), &signature)
+                .verify(digest.as_ref(), &signature)
                 .map_err(|_| PasetoError::CryptoError)?;
 
             Ok(cleartext)
@@ -404,7 +411,7 @@ pub mod key {
     }
 
     fn preauth_public(
-        key: &p384::ecdsa::VerifyingKey,
+        key: &[u8; 49],
         encoding: &'static str,
         cleartext: &[u8],
         footer: &[u8],
@@ -418,12 +425,9 @@ pub mod key {
         }
 
         let mut ctx = Context(digest::Context::new(&SHA384));
-
-        let key = key.to_encoded_point(true);
-
         pre_auth_encode(
             [
-                &[key.as_bytes()],
+                &[key],
                 &[
                     "v3".as_bytes(),
                     encoding.as_bytes(),
@@ -435,7 +439,6 @@ pub mod key {
             ],
             &mut ctx,
         );
-
         ctx.0.finish()
     }
 }

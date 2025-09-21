@@ -97,8 +97,7 @@ pub mod key {
     use generic_array::GenericArray;
     use generic_array::sequence::Split;
     use paseto_core::PasetoError;
-    use paseto_core::key::KeyText;
-    pub use paseto_core::key::{Key, SealingKey, UnsealingKey};
+    pub use paseto_core::key::{Key, KeyId, KeyText, SealingKey, UnsealingKey};
     use paseto_core::pae::{WriteBytes, pre_auth_encode};
     use paseto_core::version::{Local, Marker, Public, Secret};
     use rand::TryRngCore;

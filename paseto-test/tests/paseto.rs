@@ -155,17 +155,10 @@ impl PasetoTest {
                     .unwrap();
 
                 // 3-S-1 and 3-S-3 are not using deterministic signatures.
-                let token_str = match &*name {
-                    "3-S-1" => {
-                        "v3.public.eyJkYXRhIjoidGhpcyBpcyBhIHNpZ25lZCBtZXNzYWdlIiwiZXhwIjoiMjAyMi0wMS0wMVQwMDowMDowMCswMDowMCJ9qqEwwrKHKi5lJ7b9MBKc0G4MGZy0ptUiMv3lAUAaz-JY_zjoqBSIxMxhfAoeNYiSNQgr7UcEF1xwpZKxhyY-wbsthTWhto85XytcCWlRUCrs3ct_Wd23Tuq_0i-1My8S"
-                    }
-                    "3-S-3" => {
-                        "v3.public.eyJkYXRhIjoidGhpcyBpcyBhIHNpZ25lZCBtZXNzYWdlIiwiZXhwIjoiMjAyMi0wMS0wMVQwMDowMDowMCswMDowMCJ94SjWIbjmS7715GjLSnHnpJrC9Z-cnwK45dmvnVvCRQDCCKAXaKEopTajX0DKYx1XVUFfjsigVTj09_kd-HhxpCcaSBXyVi5DeSg1b8Wcl174ytw9OzjHe15_AxELCuhc.eyJraWQiOiJkWWtJU3lseFFlZWNFY0hFTGZ6Rjg4VVpyd2JMb2xOaUNkcHpVSEd3OVVxbiJ9"
-                    }
-                    _ => &token_str,
+                match &*name {
+                    "3-S-1" | "3-S-2" | "3-S-3" => {}
+                    _ => assert_eq!(token.to_string(), token_str),
                 };
-
-                assert_eq!(token.to_string(), token_str);
 
                 token
                     .verify_with_aad(&public_key, implicit_assertion.as_bytes())

@@ -8,7 +8,7 @@ use crate::PasetoError;
 use crate::version::{self, Marker};
 
 /// Defines a PASERK key type
-pub trait Key: Clone {
+pub trait Key: Sized {
     type Version: version::Version;
     type KeyType: Marker;
 
