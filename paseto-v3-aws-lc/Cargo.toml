@@ -1,6 +1,6 @@
 [package]
 name = "paseto-v3-aws-lc"
-version = "0.1.0-rc.2"
+version = "0.1.0-rc.3"
 edition = "2024"
 authors = ["Conrad Ludgate <conradludgate@gmail.com>"]
 repository = "https://github.com/conradludgate/paseto-rs"
@@ -36,4 +36,3 @@ aws-lc-fips-sys = { version = "0.13.1", optional = true }
 
 [dev-dependencies]
 paseto-json.workspace = true
-rand = "0.9"

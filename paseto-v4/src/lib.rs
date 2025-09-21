@@ -100,8 +100,6 @@ pub mod key {
     pub use paseto_core::key::{Key, KeyId, KeyText, SealingKey, UnsealingKey};
     use paseto_core::pae::{WriteBytes, pre_auth_encode};
     use paseto_core::version::{Local, Marker, Public, Secret};
-    use rand::TryRngCore;
-    use rand::rngs::OsRng;
 
     pub struct SecretKey(
         ed25519_dalek::SecretKey,
@@ -249,17 +247,13 @@ pub mod key {
 
         fn random() -> Result<Self, PasetoError> {
             let mut bytes = [0; 32];
-            OsRng
-                .try_fill_bytes(&mut bytes)
-                .map_err(|_| PasetoError::CryptoError)?;
+            getrandom::fill(&mut bytes).map_err(|_| PasetoError::CryptoError)?;
             Ok(Self(bytes.into()))
         }
 
         fn nonce() -> Result<Vec<u8>, PasetoError> {
             let mut nonce = [0; 32];
-            OsRng
-                .try_fill_bytes(&mut nonce)
-                .map_err(|_| PasetoError::CryptoError)?;
+            getrandom::fill(&mut nonce).map_err(|_| PasetoError::CryptoError)?;
 
             let mut payload = Vec::with_capacity(64);
             payload.extend_from_slice(&nonce);
@@ -320,9 +314,7 @@ pub mod key {
 
         fn random() -> Result<Self, PasetoError> {
             let mut secret_key = [0; 32];
-            OsRng
-                .try_fill_bytes(&mut secret_key)
-                .map_err(|_| PasetoError::CryptoError)?;
+            getrandom::fill(&mut secret_key).map_err(|_| PasetoError::CryptoError)?;
 
             let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(&secret_key);
             Ok(Self(secret_key, esk))

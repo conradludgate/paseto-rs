@@ -100,8 +100,6 @@ pub mod key {
     pub use paseto_core::key::{Key, KeyId, KeyText, SealingKey, UnsealingKey};
     use paseto_core::pae::{WriteBytes, pre_auth_encode};
     use paseto_core::version::{Local, Marker, Public, Secret};
-    use rand::TryRngCore;
-    use rand::rngs::OsRng;
     use sha2::{Digest, Sha384};
 
     #[derive(Clone)]
@@ -144,7 +142,11 @@ pub mod key {
                 .map_err(|_| PasetoError::InvalidKey)
         }
         fn encode(&self) -> Box<[u8]> {
-            self.0.to_encoded_point(true).to_bytes()
+            self.0
+                .to_encoded_point(true)
+                .as_bytes()
+                .to_vec()
+                .into_boxed_slice()
         }
     }
 
@@ -203,17 +205,13 @@ pub mod key {
 
         fn random() -> Result<Self, PasetoError> {
             let mut bytes = [0; 32];
-            OsRng
-                .try_fill_bytes(&mut bytes)
-                .map_err(|_| PasetoError::CryptoError)?;
+            getrandom::fill(&mut bytes).map_err(|_| PasetoError::CryptoError)?;
             Ok(Self(bytes))
         }
 
         fn nonce() -> Result<Vec<u8>, PasetoError> {
             let mut nonce = [0; 32];
-            OsRng
-                .try_fill_bytes(&mut nonce)
-                .map_err(|_| PasetoError::CryptoError)?;
+            getrandom::fill(&mut nonce).map_err(|_| PasetoError::CryptoError)?;
 
             let mut payload = Vec::with_capacity(80);
             payload.extend_from_slice(&nonce);
@@ -279,9 +277,7 @@ pub mod key {
         fn random() -> Result<Self, PasetoError> {
             let mut bytes = GenericArray::default();
             loop {
-                OsRng
-                    .try_fill_bytes(&mut bytes)
-                    .map_err(|_| PasetoError::CryptoError)?;
+                getrandom::fill(&mut bytes).map_err(|_| PasetoError::CryptoError)?;
                 match SigningKey::from_bytes(&bytes).map(Self) {
                     Err(_) => continue,
                     Ok(key) => break Ok(key),
