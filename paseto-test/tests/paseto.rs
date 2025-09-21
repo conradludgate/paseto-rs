@@ -84,9 +84,9 @@ impl PasetoTest {
                     .unwrap();
 
                 let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
-                assert_eq!(decrypted_token.message.0, payload);
+                assert_eq!(decrypted_token.claims.0, payload);
 
-                let token = DecryptedToken::<V, _>::new(decrypted_token.message)
+                let token = DecryptedToken::<V, _>::new(decrypted_token.claims)
                     .with_footer(decrypted_token.footer);
                 let token = token
                     .dangerous_seal_with_nonce(
@@ -148,9 +148,9 @@ impl PasetoTest {
                     .unwrap();
 
                 let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
-                assert_eq!(token.message.0, payload);
+                assert_eq!(token.claims.0, payload);
 
-                let token = VerifiedToken::<V, _>::new(token.message).with_footer(token.footer);
+                let token = VerifiedToken::<V, _>::new(token.claims).with_footer(token.footer);
                 let token = token
                     .sign_with_aad(&secret_key, implicit_assertion.as_bytes())
                     .unwrap();

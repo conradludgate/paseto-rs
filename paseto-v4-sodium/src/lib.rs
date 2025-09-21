@@ -4,7 +4,8 @@
 //! use paseto_v4_sodium::{SignedToken, VerifiedToken};
 //! use paseto_v4_sodium::libsodium;
 //! use paseto_v4_sodium::key::{SecretKey, PublicKey, SealingKey};
-//! use paseto_json::{RegisteredClaims, jiff};
+//! use paseto_json::RegisteredClaims;
+//! use std::time::Duration;
 //!
 //! // init libsodium
 //! libsodium::ensure_init().expect("libsodium should initialise successfully");
@@ -14,15 +15,9 @@
 //! let public_key = secret_key.unsealing_key();
 //!
 //! // create a set of token claims
-//! let now = jiff::Timestamp::now();
-//! let claims = RegisteredClaims {
-//!     iss: Some("https://paseto.conrad.cafe/".to_string()),
-//!     iat: Some(now),
-//!     nbf: Some(now),
-//!     exp: Some(now + std::time::Duration::from_secs(3600)),
-//!     sub: Some("conradludgate".to_string()),
-//!     ..RegisteredClaims::default()
-//! };
+//! let claims = RegisteredClaims::now(Duration::from_secs(3600))
+//!     .from_issuer("https://paseto.conrad.cafe/".to_string())
+//!     .for_subject("conradludgate".to_string());
 //!
 //! // create and sign a new token
 //! let signed_token = VerifiedToken::new(claims).sign(&secret_key).unwrap();
@@ -46,14 +41,8 @@
 //! // verify the token
 //! let verified_token = signed_token.verify(&public_key).unwrap();
 //!
-//! // TODO: verify the claims
-//! let now = jiff::Timestamp::now();
-//! if let Some(exp) = verified_token.message.exp && exp < now {
-//!     panic!("expired");
-//! }
-//! if let Some(nbf) = verified_token.message.nbf && now < nbf {
-//!     panic!("not yet available");
-//! }
+//! // verify the claims
+//! verified_token.claims.validate_time().unwrap();
 //! ```
 
 pub use paseto_core::PasetoError;

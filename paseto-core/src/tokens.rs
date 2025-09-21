@@ -25,7 +25,7 @@ pub type DecryptedToken<V, M, F = ()> = UnsealedToken<V, version::Local, M, F>;
 /// This type is un-serializable as it isn't sealed. For that you will want [`SealedToken`].
 pub struct UnsealedToken<V, P, M, F = ()> {
     /// The message that was contained in the token
-    pub message: M,
+    pub claims: M,
     /// The footer that was sent with the token
     pub footer: F,
     pub(crate) _version: PhantomData<V>,
@@ -34,9 +34,9 @@ pub struct UnsealedToken<V, P, M, F = ()> {
 
 impl<V: crate::version::Version, T: crate::version::Purpose, M> UnsealedToken<V, T, M> {
     /// Create a new [`UnsealedToken`] builder with the given message payload
-    pub fn new(message: M) -> Self {
+    pub fn new(claims: M) -> Self {
         UnsealedToken {
-            message,
+            claims,
             footer: (),
             _version: PhantomData,
             _purpose: PhantomData,
@@ -50,7 +50,7 @@ impl<V, T, M> UnsealedToken<V, T, M, ()> {
     /// Footers are embedded into the token as base64 only. They are authenticated but not encrypted.
     pub fn with_footer<F>(self, footer: F) -> UnsealedToken<V, T, M, F> {
         UnsealedToken {
-            message: self.message,
+            claims: self.claims,
             footer,
             _version: self._version,
             _purpose: self._purpose,
@@ -72,8 +72,8 @@ impl<V, T, M> UnsealedToken<V, T, M, ()> {
 /// * [`SignedToken::verify`]
 /// * [`EncryptedToken::decrypt`]
 pub struct SealedToken<V, P, M, F = ()> {
-    pub(crate) payload: Vec<u8>,
-    pub(crate) encoded_footer: Vec<u8>,
+    pub(crate) payload: Box<[u8]>,
+    pub(crate) encoded_footer: Box<[u8]>,
     pub(crate) footer: F,
     pub(crate) _version: PhantomData<V>,
     pub(crate) _purpose: PhantomData<P>,
@@ -102,7 +102,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> SealedToke
             .map_err(PasetoError::PayloadError)?;
 
         Ok(UnsealedToken {
-            message,
+            claims: message,
             footer: self.footer,
             _version: PhantomData,
             _purpose: PhantomData,
@@ -134,13 +134,16 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
         self.footer
             .encode(&mut footer)
             .map_err(PasetoError::PayloadError)?;
+        let footer = footer.into_boxed_slice();
 
         let mut payload = nonce;
-        self.message
+        self.claims
             .encode(&mut payload)
             .map_err(PasetoError::PayloadError)?;
 
-        let payload = key.dangerous_seal_with_nonce(M::SUFFIX, payload, &footer, aad)?;
+        let payload = key
+            .dangerous_seal_with_nonce(M::SUFFIX, payload, &footer, aad)?
+            .into_boxed_slice();
 
         Ok(SealedToken {
             payload,

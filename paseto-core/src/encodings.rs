@@ -97,12 +97,14 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> std::str::
         };
 
         let payload = base64ct::Base64UrlUnpadded::decode_vec(payload)
-            .map_err(|_| PasetoError::Base64DecodeError)?;
+            .map_err(|_| PasetoError::Base64DecodeError)?
+            .into_boxed_slice();
         let encoded_footer = footer
             .map(base64ct::Base64UrlUnpadded::decode_vec)
             .transpose()
             .map_err(|_| PasetoError::Base64DecodeError)?
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .into_boxed_slice();
         let footer = F::decode(&encoded_footer)
             .map_err(std::io::Error::other)
             .map_err(PasetoError::PayloadError)?;

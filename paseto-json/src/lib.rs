@@ -1,6 +1,8 @@
 use core::fmt;
+use std::time::Duration;
 
 pub use jiff;
+use paseto_core::PasetoError;
 use paseto_core::encodings::{Footer, Payload};
 use serde_core::de::{DeserializeOwned, MapAccess, Visitor};
 use serde_core::ser::SerializeStruct;
@@ -70,6 +72,98 @@ pub struct RegisteredClaims {
     pub nbf: Option<jiff::Timestamp>,
     pub iat: Option<jiff::Timestamp>,
     pub jti: Option<String>,
+}
+
+impl RegisteredClaims {
+    pub fn new(now: jiff::Timestamp, exp: Duration) -> Self {
+        Self {
+            iss: None,
+            sub: None,
+            aud: None,
+            exp: Some(now + exp),
+            nbf: Some(now),
+            iat: Some(now),
+            jti: None,
+        }
+    }
+
+    pub fn now(exp: Duration) -> Self {
+        Self::new(jiff::Timestamp::now(), exp)
+    }
+
+    pub fn from_issuer(mut self, iss: String) -> Self {
+        self.iss = Some(iss);
+        self
+    }
+
+    pub fn for_audience(mut self, aud: String) -> Self {
+        self.aud = Some(aud);
+        self
+    }
+
+    pub fn for_subject(mut self, sub: String) -> Self {
+        self.sub = Some(sub);
+        self
+    }
+
+    pub fn with_token_id(mut self, jti: String) -> Self {
+        self.jti = Some(jti);
+        self
+    }
+}
+
+impl RegisteredClaims {
+    pub fn validate_time(&self) -> Result<(), PasetoError> {
+        self.validate_with_time(jiff::Timestamp::now(), Duration::from_secs(5))
+    }
+
+    pub fn validate_with_time(
+        &self,
+        now: jiff::Timestamp,
+        leeway: Duration,
+    ) -> Result<(), PasetoError> {
+        if let Some(exp) = self.exp
+            && exp + leeway < now
+        {
+            return Err(PasetoError::ClaimsError);
+        }
+        if let Some(nbf) = self.nbf
+            && now + leeway < nbf
+        {
+            return Err(PasetoError::ClaimsError);
+        }
+        if let Some(iat) = self.iat
+            && now + leeway < iat
+        {
+            return Err(PasetoError::ClaimsError);
+        }
+
+        Ok(())
+    }
+
+    pub fn validate_audience(&self, aud: &str) -> Result<(), PasetoError> {
+        if self.aud.as_deref() != Some(aud) {
+            return Err(PasetoError::ClaimsError);
+        }
+
+        Ok(())
+    }
+
+    pub fn validate_issuer(&self, iss: &str) -> Result<(), PasetoError> {
+        if self.iss.as_deref() != Some(iss) {
+            return Err(PasetoError::ClaimsError);
+        }
+
+        Ok(())
+    }
+
+    pub fn validate_subject(&self, sub: &str) -> Result<(), PasetoError> {
+        if self.sub.as_deref() != Some(sub) {
+            return Err(PasetoError::ClaimsError);
+        }
+
+        Ok(())
+    }
 }
 
 impl serde_core::Serialize for RegisteredClaims {

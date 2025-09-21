@@ -20,6 +20,8 @@ pub enum PasetoError {
     InvalidToken,
     /// Could not verify/decrypt the PASETO/PASERK.
     CryptoError,
+    /// PASETO claims failed validation.
+    ClaimsError,
     /// There was an error with payload processing
     PayloadError(std::io::Error),
 }
@@ -40,6 +42,7 @@ impl std::fmt::Display for PasetoError {
             PasetoError::InvalidKey => f.write_str("Could not parse the key"),
             PasetoError::InvalidToken => f.write_str("Could not parse the token"),
             PasetoError::CryptoError => f.write_str("Token signature could not be validated"),
+            PasetoError::ClaimsError => f.write_str("Token claims could not be validated"),
             PasetoError::PayloadError(x) => {
                 write!(f, "there was an error with the payload encoding: {x}")
             }
