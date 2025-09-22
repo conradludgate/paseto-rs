@@ -2,8 +2,6 @@ use core::fmt;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
-use base64ct::Encoding;
-
 use crate::PasetoError;
 use crate::version::{self, Marker};
 
@@ -152,11 +150,7 @@ impl<K: Key> fmt::Display for KeyId<K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(<K::Version as version::Version>::PASERK_HEADER)?;
         f.write_str(<K::KeyType as Marker>::ID_HEADER)?;
-
-        let mut id = [0u8; 44];
-        let id = &<base64ct::Base64UrlUnpadded as Encoding>::encode(&self.id, &mut id)
-            .map_err(|_| fmt::Error)?;
-        f.write_str(id)
+        crate::base64::write_to_fmt(&self.id, f)
     }
 }
 
@@ -172,11 +166,7 @@ impl<K: Key> std::str::FromStr for KeyId<K> {
             .ok_or(PasetoError::InvalidKey)?;
 
         let mut id = [0u8; 33];
-        let len = <base64ct::Base64UrlUnpadded as Encoding>::decode(s, &mut id)
-            .map_err(|_| PasetoError::Base64DecodeError)?
-            .len();
-
-        if len != 33 {
+        if crate::base64::decode(s, &mut id)?.len() != 33 {
             return Err(PasetoError::InvalidKey);
         }
 
@@ -191,7 +181,7 @@ impl<K: Key> fmt::Display for KeyText<K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(<K::Version as version::Version>::PASERK_HEADER)?;
         f.write_str(<K::KeyType as Marker>::HEADER)?;
-        f.write_str(&base64ct::Base64UrlUnpadded::encode_string(&self.data))
+        crate::base64::write_to_fmt(&self.data, f)
     }
 }
 
@@ -206,9 +196,7 @@ impl<K: Key> std::str::FromStr for KeyText<K> {
             .strip_prefix(<K::KeyType as Marker>::HEADER)
             .ok_or(PasetoError::InvalidKey)?;
 
-        let data = base64ct::Base64UrlUnpadded::decode_vec(s)
-            .map_err(|_| PasetoError::Base64DecodeError)?
-            .into_boxed_slice();
+        let data = crate::base64::decode_vec(s)?.into_boxed_slice();
 
         Ok(Self {
             data,

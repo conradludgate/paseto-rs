@@ -4,8 +4,6 @@ use core::fmt;
 use std::io::{self, Write};
 use std::marker::PhantomData;
 
-use base64ct::Encoding;
-
 use crate::tokens::SealedToken;
 use crate::{PasetoError, version};
 
@@ -66,13 +64,11 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F> fmt::Display
         f.write_str(V::PASETO_HEADER)?;
         f.write_str(M::SUFFIX)?;
         f.write_str(P::HEADER)?;
-        f.write_str(&base64ct::Base64UrlUnpadded::encode_string(&self.payload))?;
+        crate::base64::write_to_fmt(&self.payload, f)?;
 
         if !self.encoded_footer.is_empty() {
             f.write_str(".")?;
-            f.write_str(&base64ct::Base64UrlUnpadded::encode_string(
-                &self.encoded_footer,
-            ))?;
+            crate::base64::write_to_fmt(&self.encoded_footer, f)?;
         }
 
         Ok(())
@@ -96,13 +92,10 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> std::str::
             None => (s, None),
         };
 
-        let payload = base64ct::Base64UrlUnpadded::decode_vec(payload)
-            .map_err(|_| PasetoError::Base64DecodeError)?
-            .into_boxed_slice();
+        let payload = crate::base64::decode_vec(payload)?.into_boxed_slice();
         let encoded_footer = footer
-            .map(base64ct::Base64UrlUnpadded::decode_vec)
-            .transpose()
-            .map_err(|_| PasetoError::Base64DecodeError)?
+            .map(crate::base64::decode_vec)
+            .transpose()?
             .unwrap_or_default()
             .into_boxed_slice();
         let footer = F::decode(&encoded_footer)
