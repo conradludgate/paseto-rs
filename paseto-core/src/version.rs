@@ -1,14 +1,13 @@
 use core::fmt;
 
+use crate::PasetoError;
 use crate::key::{Key, SealingKey, UnsealingKey};
 use crate::sealed::Sealed;
 
-/// An implementation of the PASETO/PASERK cryptographic schemes.
-pub trait Version {
+/// An implementation of the PASETO cryptographic schemes.
+pub trait Version: 'static {
     /// Header for PASETO
-    const PASETO_HEADER: &'static str;
-    /// Header for PASERK
-    const PASERK_HEADER: &'static str;
+    const HEADER: &'static str;
 
     /// A symmetric key used to encrypt and decrypt tokens.
     type LocalKey: SealingKey<Local> + UnsealingKey<Local> + Key<Version = Self, KeyType = Local>;
@@ -16,9 +15,25 @@ pub trait Version {
     type PublicKey: UnsealingKey<Public> + Key<Version = Self, KeyType = Public> + fmt::Display;
     /// An asymmetric key used to create token signatures.
     type SecretKey: SealingKey<Public> + Key<Version = Self, KeyType = Secret>;
+}
+
+/// An implementation of the PASERK cryptographic schemes.
+pub trait PaserkVersion: Version {
+    /// Header for PASERK
+    const PASERK_HEADER: &'static str;
 
     /// How to hash some keydata for creating [`KeyId`](crate::key::KeyId)
     fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33];
+
+    fn seal_key(
+        sealing_key: &Self::PublicKey,
+        key: Self::LocalKey,
+    ) -> Result<Box<[u8]>, PasetoError>;
+
+    fn unseal_key(
+        sealing_key: &Self::SecretKey,
+        key_data: Box<[u8]>,
+    ) -> Result<Self::LocalKey, PasetoError>;
 }
 
 /// Marks a key as secret

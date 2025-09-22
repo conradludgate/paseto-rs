@@ -49,12 +49,15 @@ pub use paseto_core::PasetoError;
 
 pub struct V4;
 impl paseto_core::version::Version for V4 {
-    const PASETO_HEADER: &'static str = "v4";
-    const PASERK_HEADER: &'static str = "k4";
+    const HEADER: &'static str = "v4";
 
     type LocalKey = key::LocalKey;
     type PublicKey = key::PublicKey;
     type SecretKey = key::SecretKey;
+}
+
+impl paseto_core::version::PaserkVersion for V4 {
+    const PASERK_HEADER: &'static str = "k4";
 
     fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33] {
         let mut ctx = libsodium_rs::crypto_generichash::State::new(None, 33)
@@ -63,6 +66,20 @@ impl paseto_core::version::Version for V4 {
         ctx.update(key_header.as_bytes());
         ctx.update(key_data);
         ctx.finalize().try_into().expect("hash should be 33 bytes")
+    }
+
+    fn seal_key(
+        sealing_key: &Self::PublicKey,
+        key: Self::LocalKey,
+    ) -> Result<Box<[u8]>, PasetoError> {
+        todo!()
+    }
+
+    fn unseal_key(
+        sealing_key: &Self::SecretKey,
+        key_data: Box<[u8]>,
+    ) -> Result<Self::LocalKey, PasetoError> {
+        todo!()
     }
 }
 

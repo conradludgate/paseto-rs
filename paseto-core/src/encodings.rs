@@ -61,7 +61,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F> fmt::Display
     for SealedToken<V, P, M, F>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(V::PASETO_HEADER)?;
+        f.write_str(V::HEADER)?;
         f.write_str(M::SUFFIX)?;
         f.write_str(P::HEADER)?;
         crate::base64::write_to_fmt(&self.payload, f)?;
@@ -82,7 +82,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> std::str::
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s
-            .strip_prefix(V::PASETO_HEADER)
+            .strip_prefix(V::HEADER)
             .ok_or(PasetoError::InvalidToken)?;
         let s = s.strip_prefix(M::SUFFIX).ok_or(PasetoError::InvalidToken)?;
         let s = s.strip_prefix(P::HEADER).ok_or(PasetoError::InvalidToken)?;
@@ -140,7 +140,7 @@ impl<'de, V: version::Version, P: version::Purpose, M: Payload, F: Footer>
             type Value = SealedToken<V, P, M, F>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "a \"{}{}\" paseto", V::PASETO_HEADER, P::HEADER,)
+                write!(formatter, "a \"{}{}\" paseto", V::HEADER, P::HEADER,)
             }
             fn visit_str<Err>(self, v: &str) -> Result<Self::Value, Err>
             where

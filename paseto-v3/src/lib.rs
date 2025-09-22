@@ -45,12 +45,15 @@ pub use paseto_core::PasetoError;
 
 pub struct V3;
 impl paseto_core::version::Version for V3 {
-    const PASETO_HEADER: &'static str = "v3";
-    const PASERK_HEADER: &'static str = "k3";
+    const HEADER: &'static str = "v3";
 
     type LocalKey = key::LocalKey;
     type PublicKey = key::PublicKey;
     type SecretKey = key::SecretKey;
+}
+
+impl paseto_core::version::PaserkVersion for V3 {
+    const PASERK_HEADER: &'static str = "k3";
 
     fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33] {
         use sha2::{Digest, Sha384};
@@ -63,6 +66,20 @@ impl paseto_core::version::Version for V3 {
         assert_eq!(hash.len(), 48);
 
         hash[..33].try_into().unwrap()
+    }
+
+    fn seal_key(
+        sealing_key: &Self::PublicKey,
+        key: Self::LocalKey,
+    ) -> Result<Box<[u8]>, PasetoError> {
+        todo!()
+    }
+
+    fn unseal_key(
+        sealing_key: &Self::SecretKey,
+        key_data: Box<[u8]>,
+    ) -> Result<Self::LocalKey, PasetoError> {
+        todo!()
     }
 }
 
@@ -157,6 +174,9 @@ pub mod key {
         type KeyType = Secret;
 
         fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+            if bytes.len() != 48 {
+                return Err(PasetoError::InvalidKey);
+            }
             let sk = p384::SecretKey::from_slice(bytes).map_err(|_| PasetoError::InvalidKey)?;
             Ok(SecretKey(sk.into()))
         }

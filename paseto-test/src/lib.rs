@@ -1,10 +1,12 @@
-use serde::Deserialize;
+use paseto_v3::key::Key;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Deserializer};
 
 pub fn read_test<Test: DeserializeOwned>(v: &str) -> TestFile<Test> {
     let path = format!("tests/vectors/{v}");
-    let file = std::fs::read_to_string(path).unwrap();
-    serde_json::from_str(&file).unwrap()
+    let file = std::fs::read_to_string(path)
+        .unwrap_or_else(|e| panic!("reading {v} should succeed: {e:?}"));
+    serde_json::from_str(&file).unwrap_or_else(|e| panic!("parsing {v} should succeed: {e:?}"))
 }
 
 #[derive(Deserialize)]
@@ -48,4 +50,15 @@ impl<'a, const B: bool> Deserialize<'a> for Bool<B> {
 
         deserializer.deserialize_bool(BoolVisitor)
     }
+}
+
+pub fn deserialize_hex<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
+    let s = String::deserialize(d)?;
+    hex::decode(s).map_err(serde::de::Error::custom)
+}
+
+pub fn deserialize_key<'de, D: Deserializer<'de>, K: Key>(d: D) -> Result<K, D::Error> {
+    K::decode(&deserialize_hex(d)?)
+        .inspect_err(|d| println!("{d:?}"))
+        .map_err(serde::de::Error::custom)
 }

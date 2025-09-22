@@ -45,12 +45,15 @@ pub use paseto_core::PasetoError;
 
 pub struct V3;
 impl paseto_core::version::Version for V3 {
-    const PASETO_HEADER: &'static str = "v3";
-    const PASERK_HEADER: &'static str = "k3";
+    const HEADER: &'static str = "v3";
 
     type LocalKey = key::LocalKey;
     type PublicKey = key::PublicKey;
     type SecretKey = key::SecretKey;
+}
+
+impl paseto_core::version::PaserkVersion for V3 {
+    const PASERK_HEADER: &'static str = "k3";
 
     fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33] {
         use aws_lc_rs::digest::{self, SHA384};
@@ -63,6 +66,20 @@ impl paseto_core::version::Version for V3 {
         assert_eq!(hash.as_ref().len(), 48);
 
         hash.as_ref()[..33].try_into().unwrap()
+    }
+
+    fn seal_key(
+        sealing_key: &Self::PublicKey,
+        key: Self::LocalKey,
+    ) -> Result<Box<[u8]>, PasetoError> {
+        todo!()
+    }
+
+    fn unseal_key(
+        sealing_key: &Self::SecretKey,
+        key_data: Box<[u8]>,
+    ) -> Result<Self::LocalKey, PasetoError> {
+        todo!()
     }
 }
 
@@ -154,6 +171,9 @@ pub mod key {
         type KeyType = Secret;
 
         fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+            if bytes.len() != 48 {
+                return Err(PasetoError::InvalidKey);
+            }
             SigningKey::from_sec1_bytes(bytes).map(Self)
         }
         fn encode(&self) -> Box<[u8]> {

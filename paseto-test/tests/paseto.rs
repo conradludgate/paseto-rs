@@ -1,5 +1,4 @@
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::key::Key;
 use paseto_core::tokens::{DecryptedToken, EncryptedToken, SignedToken, VerifiedToken};
 use paseto_core::version::Version;
 use paseto_json::Json;
@@ -12,36 +11,41 @@ fn main() {
 
     let mut tests = vec![];
 
-    PasetoTest::add_tests::<paseto_v3::V3>("paseto-v3", &mut tests);
-    PasetoTest::add_tests::<paseto_v3_aws_lc::V3>("paseto-v3-aws-lc", &mut tests);
-    PasetoTest::add_tests::<paseto_v4::V4>("paseto-v4", &mut tests);
-    PasetoTest::add_tests::<paseto_v4_sodium::V4>("paseto-v4-sodium", &mut tests);
+    PasetoTest::<paseto_v3::V3>::add_tests("paseto-v3", &mut tests);
+    PasetoTest::<paseto_v3_aws_lc::V3>::add_tests("paseto-v3-aws-lc", &mut tests);
+    PasetoTest::<paseto_v4::V4>::add_tests("paseto-v4", &mut tests);
+    PasetoTest::<paseto_v4_sodium::V4>::add_tests("paseto-v4-sodium", &mut tests);
 
     libtest_mimic::run(&args, tests).exit();
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "kebab-case")]
-struct PasetoTest {
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case", bound = "")]
+struct PasetoTest<V: Version> {
     token: String,
     footer: String,
     implicit_assertion: String,
     #[serde(flatten)]
-    purpose: PasetoPurpose,
+    purpose: PasetoPurpose<V>,
     #[serde(flatten)]
     result: TestResult,
 }
 
-impl PasetoTest {
-    fn add_tests<V: Version>(name: &str, tests: &mut Vec<Trial>) {
-        let test_file: TestFile<Self> = read_test(&format!("{}.json", V::PASETO_HEADER));
+impl<V: Version> PasetoTest<V>
+where
+    V::LocalKey: Send,
+    V::PublicKey: Send,
+    V::SecretKey: Send,
+{
+    fn add_tests(name: &str, tests: &mut Vec<Trial>) {
+        let test_file: TestFile<Self> = read_test(&format!("{}.json", V::HEADER));
         for test in test_file.tests {
             let name = format!("{name}::{}", test.name);
-            tests.push(Trial::test(name, || test.test_data.test::<V>(test.name)));
+            tests.push(Trial::test(name, || test.test_data.test(test.name)));
         }
     }
 
-    fn test<V: Version>(self, name: String) -> Result<(), Failed> {
+    fn test(self, name: String) -> Result<(), Failed> {
         match self {
             PasetoTest {
                 token,
@@ -50,9 +54,6 @@ impl PasetoTest {
                 purpose: PasetoPurpose::Local { key, .. },
                 result: TestResult::Failure { .. },
             } => {
-                let key = hex::decode(key).unwrap();
-                let key = V::LocalKey::decode(&key).unwrap();
-
                 let Ok(token): Result<EncryptedToken<V, Json<serde_json::Value>, Vec<u8>>, _> =
                     token.parse()
                 else {
@@ -72,9 +73,6 @@ impl PasetoTest {
                 purpose: PasetoPurpose::Local { nonce, key },
                 result: TestResult::Success { payload, .. },
             } => {
-                let key = hex::decode(key).unwrap();
-                let key = V::LocalKey::decode(&key).unwrap();
-
                 let token: EncryptedToken<V, Json<serde_json::Value>, Vec<u8>> =
                     token_str.parse().unwrap();
                 assert_eq!(token.unverified_footer(), footer.as_bytes());
@@ -89,11 +87,7 @@ impl PasetoTest {
                 let token = DecryptedToken::<V, _>::new(decrypted_token.claims)
                     .with_footer(decrypted_token.footer);
                 let token = token
-                    .dangerous_seal_with_nonce(
-                        &key,
-                        implicit_assertion.as_bytes(),
-                        hex::decode(nonce).unwrap(),
-                    )
+                    .dangerous_seal_with_nonce(&key, implicit_assertion.as_bytes(), nonce)
                     .unwrap();
 
                 assert_eq!(token.to_string(), token_str);
@@ -107,9 +101,6 @@ impl PasetoTest {
                 purpose: PasetoPurpose::Public { public_key, .. },
                 result: TestResult::Failure { .. },
             } => {
-                let public_key = hex::decode(public_key).unwrap();
-                let public_key = V::PublicKey::decode(&public_key).unwrap();
-
                 let Ok(token): Result<SignedToken<V, Json<serde_json::Value>, Vec<u8>>, _> =
                     token.parse()
                 else {
@@ -133,12 +124,6 @@ impl PasetoTest {
                     },
                 result: TestResult::Success { payload, .. },
             } => {
-                let public_key = hex::decode(public_key).unwrap();
-                let secret_key = hex::decode(secret_key).unwrap();
-
-                let public_key = V::PublicKey::decode(&public_key).unwrap();
-                let secret_key = V::SecretKey::decode(&secret_key).unwrap();
-
                 let token: SignedToken<V, Json<serde_json::Value>, Vec<u8>> =
                     token_str.parse().unwrap();
                 assert_eq!(token.unverified_footer(), footer.as_bytes());
@@ -172,14 +157,21 @@ impl PasetoTest {
 }
 
 #[derive(Deserialize, Debug)]
-#[serde(untagged)]
-enum PasetoPurpose {
+#[serde(untagged, bound = "")]
+enum PasetoPurpose<V: Version> {
     #[serde(rename_all = "kebab-case")]
-    Local { nonce: String, key: String },
+    Local {
+        #[serde(deserialize_with = "paseto_test::deserialize_hex")]
+        nonce: Vec<u8>,
+        #[serde(deserialize_with = "paseto_test::deserialize_key")]
+        key: V::LocalKey,
+    },
     #[serde(rename_all = "kebab-case")]
     Public {
-        public_key: String,
-        secret_key: String,
+        #[serde(deserialize_with = "paseto_test::deserialize_key")]
+        public_key: V::PublicKey,
+        #[serde(deserialize_with = "paseto_test::deserialize_key")]
+        secret_key: V::SecretKey,
     },
 }
 
