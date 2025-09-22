@@ -11,10 +11,10 @@ fn main() {
 
     let mut tests = vec![];
 
-    // IdTest::add_all_tests::<paseto_v3::V3>("paseto-v3", &mut tests);
-    // IdTest::add_all_tests::<paseto_v3_aws_lc::V3>("paseto-v3-aws-lc", &mut tests);
+    // SealTest::<paseto_v3::V3>::add_tests("paseto-v3", &mut tests);
+    // SealTest::<paseto_v3_aws_lc::V3>::add_tests("paseto-v3-aws-lc", &mut tests);
     SealTest::<paseto_v4::V4>::add_tests("paseto-v4", &mut tests);
-    // IdTest::add_all_tests::<paseto_v4_sodium::V4>("paseto-v4-sodium", &mut tests);
+    SealTest::<paseto_v4_sodium::V4>::add_tests("paseto-v4-sodium", &mut tests);
 
     libtest_mimic::run(&args, tests).exit();
 }
@@ -80,8 +80,8 @@ where
                 assert!(eq_keys(&key, &unsealed));
 
                 let sealed = SealedKey::<V>::seal(unsealed, &sealing_public_key)?;
-                let key2 = sealed.unseal(&sealing_secret_key)?;
 
+                let key2 = sealed.unseal(&sealing_secret_key)?;
                 assert!(eq_keys(&key, &key2));
 
                 Ok(())

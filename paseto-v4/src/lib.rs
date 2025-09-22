@@ -75,9 +75,9 @@ impl paseto_core::version::PaserkVersion for V4 {
 
     fn unseal_key(
         sealing_key: &key::SecretKey,
-        key_data: Box<[u8]>,
+        mut key_data: Box<[u8]>,
     ) -> Result<key::LocalKey, PasetoError> {
-        key::unseal_key(sealing_key, key_data)
+        key::unseal_key(sealing_key, &mut key_data)
     }
 }
 
@@ -551,7 +551,7 @@ pub mod key {
 
     pub(super) fn unseal_key(
         unsealing_key: &SecretKey,
-        mut key_data: Box<[u8]>,
+        key_data: &mut [u8],
     ) -> Result<LocalKey, PasetoError> {
         use cipher::KeyIvInit;
         use digest::Digest;

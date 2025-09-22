@@ -69,15 +69,15 @@ impl paseto_core::version::PaserkVersion for V3 {
     }
 
     fn seal_key(
-        sealing_key: &Self::PublicKey,
-        key: Self::LocalKey,
+        _sealing_key: &Self::PublicKey,
+        _key: Self::LocalKey,
     ) -> Result<Box<[u8]>, PasetoError> {
         todo!()
     }
 
     fn unseal_key(
-        sealing_key: &Self::SecretKey,
-        key_data: Box<[u8]>,
+        _sealing_key: &Self::SecretKey,
+        _key_data: Box<[u8]>,
     ) -> Result<Self::LocalKey, PasetoError> {
         todo!()
     }
