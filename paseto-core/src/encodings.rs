@@ -81,9 +81,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> std::str::
     type Err = PasetoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s
-            .strip_prefix(V::HEADER)
-            .ok_or(PasetoError::InvalidToken)?;
+        let s = s.strip_prefix(V::HEADER).ok_or(PasetoError::InvalidToken)?;
         let s = s.strip_prefix(M::SUFFIX).ok_or(PasetoError::InvalidToken)?;
         let s = s.strip_prefix(P::HEADER).ok_or(PasetoError::InvalidToken)?;
 

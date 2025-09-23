@@ -429,8 +429,6 @@ pub mod key {
 
         let esk = p384::SecretKey::from(SecretKey::random()?.0);
         let epk: EncodedPoint = esk.public_key().to_encoded_point(true);
-        // let epk_point = AffinePoint::try_from(&epk).map_err(|_| PasetoError::CryptoError)?;
-        // let epk = epk.as_bytes();
 
         let xk = diffie_hellman(esk.to_nonzero_scalar(), sealing_key.0.as_affine());
 

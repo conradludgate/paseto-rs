@@ -15,8 +15,9 @@ use aws_lc::{
     BN_bin2bn, BN_bn2bin, BN_num_bytes, EC_GROUP, EC_KEY, EC_KEY_get0_private_key,
     EC_KEY_get0_public_key, EC_KEY_new, EC_KEY_set_group, EC_KEY_set_private_key,
     EC_KEY_set_public_key, EC_POINT, EC_POINT_mul, EC_POINT_new, EC_POINT_oct2point,
-    EC_POINT_point2oct, EC_group_p384, ECDSA_SIG, ECDSA_SIG_from_bytes, ECDSA_SIG_get0,
-    ECDSA_SIG_new, ECDSA_SIG_set0, ECDSA_SIG_to_bytes, ECDSA_sign, ECDSA_size, ECDSA_verify,
+    EC_POINT_point2oct, EC_group_p384, ECDH_compute_key, ECDSA_SIG, ECDSA_SIG_from_bytes,
+    ECDSA_SIG_get0, ECDSA_SIG_new, ECDSA_SIG_set0, ECDSA_SIG_to_bytes, ECDSA_sign, ECDSA_size,
+    ECDSA_verify,
 };
 
 pub struct SigningKey {
@@ -150,6 +151,30 @@ impl SigningKey {
 
         let sig = LcPtr::new(unsafe { ECDSA_SIG_from_bytes(sig.as_ptr(), sig_len as usize) })?;
         Ok(Signature { sig })
+    }
+
+    pub fn diffie_hellman(&self, pubkey: &VerifyingKey) -> Result<[u8; 48], PasetoError> {
+        let mut out = [0; 48];
+
+        let pubkey = pubkey.key.as_const();
+        let pubkey = pubkey
+            .project(|k| unsafe { EC_KEY_get0_public_key(**k) })
+            .unwrap();
+
+        let res = unsafe {
+            ECDH_compute_key(
+                out.as_mut_ptr().cast(),
+                out.len(),
+                *pubkey,
+                *self.key.as_const(),
+                None,
+            )
+        };
+        if res != 48 {
+            return Err(PasetoError::CryptoError);
+        }
+
+        Ok(out)
     }
 }
 

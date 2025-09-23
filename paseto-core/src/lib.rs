@@ -1,9 +1,9 @@
+mod base64;
 pub mod encodings;
 pub mod key;
 pub mod pae;
 pub mod tokens;
 pub mod version;
-mod base64;
 
 mod sealed {
     pub trait Sealed {}

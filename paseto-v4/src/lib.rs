@@ -488,10 +488,8 @@ pub mod key {
         key: LocalKey,
     ) -> Result<Box<[u8]>, PasetoError> {
         use cipher::KeyIvInit;
-        use curve25519_dalek::{
-            edwards::CompressedEdwardsY,
-            scalar::{Scalar, clamp_integer},
-        };
+        use curve25519_dalek::edwards::CompressedEdwardsY;
+        use curve25519_dalek::scalar::{Scalar, clamp_integer};
         use digest::Digest;
 
         // Given a plaintext data key (pdk), and an Ed25519 public key (pk).
