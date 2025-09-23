@@ -493,7 +493,6 @@ pub mod key {
             scalar::{Scalar, clamp_integer},
         };
         use digest::Digest;
-        const HEADER: &str = "k4.seal.";
 
         // Given a plaintext data key (pdk), and an Ed25519 public key (pk).
         let pk = CompressedEdwardsY(*sealing_key.0.as_bytes());
@@ -512,8 +511,7 @@ pub mod key {
         let xk = esk * xpk;
 
         let mut ek = blake2::Blake2b::new();
-        ek.update([0x01]);
-        ek.update(HEADER);
+        ek.update(b"\x01k4.seal.");
         ek.update(xk.as_bytes());
         ek.update(epk.as_bytes());
         ek.update(xpk.as_bytes());
@@ -528,15 +526,14 @@ pub mod key {
         chacha20::XChaCha20::new(&ek, &n).apply_keystream(&mut edk);
 
         let mut ak = blake2::Blake2b::<U32>::new();
-        ak.update([0x02]);
-        ak.update(HEADER);
+        ak.update(b"\x02k4.seal.");
         ak.update(xk.as_bytes());
         ak.update(epk.as_bytes());
         ak.update(xpk.as_bytes());
         let ak = ak.finalize();
 
         let mut tag = blake2::Blake2bMac::<U32>::new_from_slice(&ak).unwrap();
-        tag.update(HEADER.as_bytes());
+        tag.update(b"k4.seal.");
         tag.update(epk.as_bytes());
         tag.update(&edk);
         let tag = tag.finalize().into_bytes();
@@ -555,7 +552,6 @@ pub mod key {
     ) -> Result<LocalKey, PasetoError> {
         use cipher::KeyIvInit;
         use digest::Digest;
-        const HEADER: &str = "k4.seal.";
 
         let (tag, key_data) = key_data
             .split_first_chunk_mut::<32>()
@@ -574,15 +570,14 @@ pub mod key {
         let xk = unsealing_key.1.scalar * epk;
 
         let mut ak = blake2::Blake2b::<U32>::new();
-        ak.update([0x02]);
-        ak.update(HEADER);
+        ak.update(b"\x02k4.seal.");
         ak.update(xk.as_bytes());
         ak.update(epk.as_bytes());
         ak.update(xpk.as_bytes());
         let ak = ak.finalize();
 
         let mut t2 = blake2::Blake2bMac::<U32>::new_from_slice(&ak).unwrap();
-        t2.update(HEADER.as_bytes());
+        t2.update(b"k4.seal.");
         t2.update(epk.as_bytes());
         t2.update(edk);
 
@@ -591,8 +586,7 @@ pub mod key {
             .map_err(|_| PasetoError::CryptoError)?;
 
         let mut ek = blake2::Blake2b::new();
-        ek.update([0x01]);
-        ek.update(HEADER);
+        ek.update(b"\x01k4.seal.");
         ek.update(xk.as_bytes());
         ek.update(epk.as_bytes());
         ek.update(xpk.as_bytes());

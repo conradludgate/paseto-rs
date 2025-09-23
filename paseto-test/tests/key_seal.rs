@@ -11,7 +11,7 @@ fn main() {
 
     let mut tests = vec![];
 
-    // SealTest::<paseto_v3::V3>::add_tests("paseto-v3", &mut tests);
+    SealTest::<paseto_v3::V3>::add_tests("paseto-v3", &mut tests);
     // SealTest::<paseto_v3_aws_lc::V3>::add_tests("paseto-v3-aws-lc", &mut tests);
     SealTest::<paseto_v4::V4>::add_tests("paseto-v4", &mut tests);
     SealTest::<paseto_v4_sodium::V4>::add_tests("paseto-v4-sodium", &mut tests);

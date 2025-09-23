@@ -16,18 +16,33 @@ pub fn write_to_fmt(bytes: &[u8], f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(unsafe { str::from_utf8_unchecked(&tmp) })?;
     }
 
-    if !rem.is_empty() {
-        let mut tmp_in = [0u8; 3];
-        tmp_in[..rem.len()].copy_from_slice(rem);
+    let last = encode_last(rem, &mut tmp);
+    f.write_str(unsafe { str::from_utf8_unchecked(last) })
+}
 
-        encode_3bytes(&tmp_in, &mut tmp);
-        let tmp = &tmp[..rem.len() + 1];
+fn encode_last<'a>(bytes: &[u8], dst: &'a mut [u8; 4]) -> &'a [u8] {
+    let tmp;
+    let len = match *bytes {
+        [] => {
+            tmp = [0; 3];
+            0
+        }
+        [a] => {
+            tmp = [a, 0, 0];
+            2
+        }
+        [a, b] => {
+            tmp = [a, b, 0];
+            3
+        }
+        [a, b, c, ..] => {
+            tmp = [a, b, c];
+            4
+        }
+    };
 
-        // SAFETY: values written by `encode_3bytes` are valid one-byte UTF-8 chars
-        f.write_str(unsafe { str::from_utf8_unchecked(tmp) })?;
-    }
-
-    Ok(())
+    encode_3bytes(&tmp, dst);
+    &dst[..len]
 }
 
 pub fn decode<'a>(src: &str, dst: &'a mut [u8]) -> Result<&'a [u8], PasetoError> {
@@ -92,14 +107,12 @@ fn validate_last_block(encoded: &[u8], decoded: &[u8]) -> Result<(), PasetoError
         .ok_or(PasetoError::Base64DecodeError)?;
 
     // Round-trip encode the decoded block
-    let mut tmp = [0u8; 3];
-    tmp[..dec_block.len()].copy_from_slice(dec_block);
     let mut buf = [0u8; 4];
-    encode_3bytes(&tmp, &mut buf);
+    let bytes = encode_last(dec_block, &mut buf);
 
     // Non-short-circuiting comparison of padding
     // TODO(tarcieri): better constant-time mechanisms (e.g. `subtle`)?
-    if buf
+    if bytes
         .iter()
         .zip(enc_block.iter())
         .fold(0, |acc, (a, b)| acc | (a ^ b))

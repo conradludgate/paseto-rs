@@ -58,7 +58,5 @@ pub fn deserialize_hex<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Er
 }
 
 pub fn deserialize_key<'de, D: Deserializer<'de>, K: Key>(d: D) -> Result<K, D::Error> {
-    K::decode(&deserialize_hex(d)?)
-        .inspect_err(|d| println!("{d:?}"))
-        .map_err(serde::de::Error::custom)
+    K::decode(&deserialize_hex(d)?).map_err(serde::de::Error::custom)
 }
