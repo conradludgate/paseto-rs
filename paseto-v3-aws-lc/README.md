@@ -34,7 +34,7 @@ let key = public_key.to_string();
 ```rust
 use paseto_v3_aws_lc::SignedToken;
 use paseto_v3_aws_lc::key::PublicKey;
-use paseto_json::{RegisteredClaims, Time, MustExpire, FromIssuer, ForSubject, Validate};
+use paseto_json::{RegisteredClaims, Time, HasExpiry, FromIssuer, ForSubject, Validate};
 
 // parse the token
 let signed_token: SignedToken<RegisteredClaims> = token.parse().unwrap();
@@ -43,9 +43,9 @@ let signed_token: SignedToken<RegisteredClaims> = token.parse().unwrap();
 let public_key: PublicKey = key.parse().unwrap();
 
 // verify the token signature and validate the claims.
-let validation = Time::now()
-    .then(MustExpire)
-    .then(FromIssuer("https://paseto.conrad.cafe/"))
-    .then(ForSubject("conradludgate"));
+let validation = Time::valid_now()
+    .and_then(HasExpiry)
+    .and_then(FromIssuer("https://paseto.conrad.cafe/"))
+    .and_then(ForSubject("conradludgate"));
 let verified_token = signed_token.verify(&public_key, &validation).unwrap();
 ```

@@ -15,10 +15,23 @@ pub trait KeyKind: Sized {
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError>;
 }
 
+/// Generic key type.
 pub struct Key<V: Version, K: Marker>(pub(crate) K::Key<V>);
 
+impl<V: Version, K: Marker> Clone for Key<V, K>
+where
+    K::Key<V>: Clone,
+{
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+/// Private key used for [`encryption`](crate::DecryptedToken::encrypt) and [`decryptiom`](crate::EncryptedToken::decrypt)
 pub type LocalKey<V> = Key<V, Local>;
+/// Public key used for signature [`verification`](crate::SignedToken::verify)
 pub type PublicKey<V> = Key<V, Public>;
+/// Private key used for token [`signing`](crate::VerifiedToken::sign)
 pub type SecretKey<V> = Key<V, Secret>;
 
 impl<V: PaserkVersion, K: Marker> FromStr for Key<V, K> {
@@ -247,6 +260,10 @@ impl<V: PaserkVersion, K: Marker> std::str::FromStr for KeyText<V, K> {
     }
 }
 
+/// An asymmetrically encrypted [`LocalKey`].
+///
+/// * Encrypted using [`PublicKey::seal`]
+/// * Decrypted using [`SecretKey::unseal`]
 pub struct SealedKey<V: PaserkVersion> {
     key_data: Box<[u8]>,
     _version: PhantomData<V>,

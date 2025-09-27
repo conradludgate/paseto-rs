@@ -9,10 +9,10 @@ fn main() {
 
     let mut tests = vec![];
 
-    add_all_tests::<paseto_v3::V3>("paseto-v3", &mut tests);
-    add_all_tests::<paseto_v3_aws_lc::V3>("paseto-v3-aws-lc", &mut tests);
-    add_all_tests::<paseto_v4::V4>("paseto-v4", &mut tests);
-    add_all_tests::<paseto_v4_sodium::V4>("paseto-v4-sodium", &mut tests);
+    add_all_tests::<paseto_v3::core::V3>("paseto-v3", &mut tests);
+    add_all_tests::<paseto_v3_aws_lc::core::V3>("paseto-v3-aws-lc", &mut tests);
+    add_all_tests::<paseto_v4::core::V4>("paseto-v4", &mut tests);
+    add_all_tests::<paseto_v4_sodium::core::V4>("paseto-v4-sodium", &mut tests);
 
     libtest_mimic::run(&args, tests).exit();
 }

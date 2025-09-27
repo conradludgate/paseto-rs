@@ -80,13 +80,13 @@ pub struct Time {
 }
 
 impl Time {
-    pub fn now() -> Self {
+    pub fn valid_now() -> Self {
         Self {
             now: jiff::Timestamp::now(),
         }
     }
 
-    pub fn new(now: jiff::Timestamp) -> Self {
+    pub fn valid_at(now: jiff::Timestamp) -> Self {
         Self { now }
     }
 
@@ -185,9 +185,9 @@ impl<T: AsRef<str>> Validate for ForAudience<T> {
     }
 }
 
-pub struct MustExpire;
+pub struct HasExpiry;
 
-impl Validate for MustExpire {
+impl Validate for HasExpiry {
     type Claims = RegisteredClaims;
 
     fn validate(&self, claims: &Self::Claims) -> Result<(), PasetoError> {

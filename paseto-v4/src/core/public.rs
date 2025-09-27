@@ -1,0 +1,185 @@
+use ed25519_dalek::Signature;
+use paseto_core::PasetoError;
+use paseto_core::key::{KeyKind, SealingKey, UnsealingKey};
+use paseto_core::pae::{WriteBytes, pre_auth_encode};
+use paseto_core::version::{Marker, Public, Secret};
+
+use super::{PreAuthEncodeDigest, PublicKey, SecretKey, V4};
+
+impl Clone for SecretKey {
+    fn clone(&self) -> Self {
+        let esk = ed25519_dalek::hazmat::ExpandedSecretKey {
+            scalar: self.1.scalar,
+            hash_prefix: self.1.hash_prefix,
+        };
+        Self(self.0, esk)
+    }
+}
+
+impl KeyKind for PublicKey {
+    type Version = V4;
+    type KeyType = Public;
+
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        let key = bytes.try_into().map_err(|_| PasetoError::InvalidKey)?;
+        ed25519_dalek::VerifyingKey::from_bytes(&key)
+            .map(PublicKey)
+            .map_err(|_| PasetoError::InvalidKey)
+    }
+    fn encode(&self) -> Box<[u8]> {
+        self.0.as_bytes().to_vec().into_boxed_slice()
+    }
+}
+
+impl KeyKind for SecretKey {
+    type Version = V4;
+    type KeyType = Secret;
+
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        let (secret_key, verifying_key) = bytes
+            .split_first_chunk::<32>()
+            .ok_or(PasetoError::InvalidKey)?;
+
+        let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(secret_key);
+        let key = Self(*secret_key, esk);
+
+        let verifying_key = PublicKey::decode(verifying_key)?;
+
+        if key.unsealing_key().0 != verifying_key.0 {
+            return Err(PasetoError::InvalidKey);
+        }
+
+        Ok(key)
+    }
+
+    fn encode(&self) -> Box<[u8]> {
+        let mut bytes = Vec::with_capacity(64);
+        bytes.extend_from_slice(&self.0);
+        bytes.extend_from_slice(self.unsealing_key().0.as_bytes());
+        bytes.into_boxed_slice()
+    }
+}
+
+impl SealingKey<Public> for SecretKey {
+    fn unsealing_key(&self) -> PublicKey {
+        PublicKey((&self.1).into())
+    }
+
+    fn random() -> Result<Self, PasetoError> {
+        let mut secret_key = [0; 32];
+        getrandom::fill(&mut secret_key).map_err(|_| PasetoError::CryptoError)?;
+
+        let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(&secret_key);
+        Ok(Self(secret_key, esk))
+    }
+
+    fn nonce() -> Result<Vec<u8>, PasetoError> {
+        Ok(Vec::with_capacity(32))
+    }
+
+    fn dangerous_seal_with_nonce(
+        &self,
+        encoding: &'static str,
+        mut payload: Vec<u8>,
+        footer: &[u8],
+        aad: &[u8],
+    ) -> Result<Vec<u8>, PasetoError> {
+        let signature = preauth_secret(&self.1, encoding, &payload, footer, aad);
+        payload.extend_from_slice(&signature.to_bytes());
+        Ok(payload)
+    }
+}
+
+impl UnsealingKey<Public> for PublicKey {
+    fn unseal<'a>(
+        &self,
+        encoding: &'static str,
+        payload: &'a mut [u8],
+        footer: &[u8],
+        aad: &[u8],
+    ) -> Result<&'a [u8], PasetoError> {
+        let len = payload.len();
+        if len < 64 {
+            return Err(PasetoError::InvalidToken);
+        }
+
+        let (cleartext, tag) = payload.split_at(len - 64);
+        let signature = Signature::from_bytes(tag.try_into().unwrap());
+        let verifier = self
+            .0
+            .verify_stream(&signature)
+            .map_err(|_| PasetoError::CryptoError)?;
+
+        preauth_public(verifier, encoding, cleartext, footer, aad)
+            .finalize_and_verify()
+            .map_err(|_| PasetoError::CryptoError)?;
+
+        Ok(cleartext)
+    }
+}
+
+fn preauth_public(
+    verifier: ed25519_dalek::StreamVerifier,
+    encoding: &'static str,
+    cleartext: &[u8],
+    footer: &[u8],
+    aad: &[u8],
+) -> ed25519_dalek::StreamVerifier {
+    #[repr(transparent)]
+    pub struct StreamVerifier(pub ed25519_dalek::StreamVerifier);
+
+    impl WriteBytes for StreamVerifier {
+        fn write(&mut self, slice: &[u8]) {
+            self.0.update(slice);
+        }
+    }
+
+    let mut sv = StreamVerifier(verifier);
+    pre_auth_encode(
+        [
+            &[
+                "v4".as_bytes(),
+                encoding.as_bytes(),
+                Public::HEADER.as_bytes(),
+            ],
+            &[cleartext],
+            &[footer],
+            &[aad],
+        ],
+        &mut sv,
+    );
+
+    sv.0
+}
+
+fn preauth_secret(
+    esk: &ed25519_dalek::hazmat::ExpandedSecretKey,
+    encoding: &'static str,
+    cleartext: &[u8],
+    footer: &[u8],
+    aad: &[u8],
+) -> Signature {
+    let vk = ed25519_dalek::VerifyingKey::from(esk);
+
+    ed25519_dalek::hazmat::raw_sign_byupdate::<sha2::Sha512, _>(
+        esk,
+        |ctx| {
+            pre_auth_encode(
+                [
+                    &[
+                        "v4".as_bytes(),
+                        encoding.as_bytes(),
+                        Public::HEADER.as_bytes(),
+                    ],
+                    &[cleartext],
+                    &[footer],
+                    &[aad],
+                ],
+                PreAuthEncodeDigest(ctx),
+            );
+            Ok(())
+        },
+        &vk,
+    )
+    .expect("should not error")
+}

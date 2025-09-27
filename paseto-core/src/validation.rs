@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::PasetoError;
 
+/// Validation rules for the claims in a PASETO
 pub trait Validate {
     /// The type of claim that can be validated
     type Claims;
@@ -12,7 +13,7 @@ pub trait Validate {
     fn validate(&self, claims: &Self::Claims) -> Result<(), PasetoError>;
 
     /// Extend the validation with another validation.
-    fn then<V>(self, other: V) -> impl Validate<Claims = Self::Claims>
+    fn and_then<V>(self, other: V) -> impl Validate<Claims = Self::Claims>
     where
         Self: Sized,
         V: Validate<Claims = Self::Claims>,
@@ -20,6 +21,7 @@ pub trait Validate {
         ValidateThen(self, other)
     }
 
+    /// Convert this validator into a validator of another type
     fn map<T>(self, f: impl for<'a> Fn(&'a T) -> &'a Self::Claims) -> impl Validate<Claims = T>
     where
         Self: Sized,
