@@ -1,17 +1,18 @@
 # paseto-v3
 
-AWS-LC based PASETO V3 implementation.
+RustCrypto based PASETO V3 implementation.
 
 ## Examples
 
 ```rust
-use paseto_v3::{SignedToken, VerifiedToken};
-use paseto_v3::key::{SecretKey, PublicKey, SealingKey};
-use paseto_json::{RegisteredClaims, jiff};
+use paseto_v3_aws_lc::VerifiedToken;
+use paseto_v3::key::{SecretKey, SealingKey};
+use paseto_json::RegisteredClaims;
+use std::time::Duration;
 
 // create a new keypair
 let secret_key = SecretKey::random().unwrap();
-let public_key = secret_key.unsealing_key();
+let public_key = secret_key.public_key();
 
 // create a set of token claims
 let claims = RegisteredClaims::now(Duration::from_secs(3600))
@@ -31,15 +32,20 @@ let key = public_key.to_string();
 ```
 
 ```rust
+use paseto_v3::SignedToken;
+use paseto_v3::key::PublicKey;
+use paseto_json::{RegisteredClaims, Time, MustExpire, FromIssuer, ForSubject, Validate};
+
 // parse the token
 let signed_token: SignedToken<RegisteredClaims> = token.parse().unwrap();
 
 // parse the key
 let public_key: PublicKey = key.parse().unwrap();
 
-// verify the token
-let verified_token = signed_token.verify(&public_key).unwrap();
-
-// verify the claims
-verified_token.claims.validate_time().unwrap();
+// verify the token signature and validate the claims.
+let validation = Time::now()
+    .then(MustExpire)
+    .then(FromIssuer("https://paseto.conrad.cafe/"))
+    .then(ForSubject("conradludgate"));
+let verified_token = signed_token.verify(&public_key, &validation).unwrap();
 ```

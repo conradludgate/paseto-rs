@@ -1,6 +1,6 @@
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::key::{Key, KeyId, KeyText};
-use paseto_core::version::{Marker, PaserkVersion};
+use paseto_core::key::{Key, KeyId};
+use paseto_core::version::{Local, Marker, PaserkVersion, Public, Secret};
 use paseto_test::{Bool, TestFile, read_test};
 use serde::Deserialize;
 
@@ -19,14 +19,14 @@ fn main() {
 
 #[derive(Deserialize)]
 #[serde(untagged, bound = "")]
-enum IdTest<K: Key> {
+enum IdTest<V: PaserkVersion, K: Marker> {
     #[serde(rename_all = "kebab-case")]
     Success {
         #[expect(unused)]
         expect_fail: Bool<false>,
         paserk: String,
         #[serde(deserialize_with = "paseto_test::deserialize_key")]
-        key: K,
+        key: Key<V, K>,
     },
     #[serde(rename_all = "kebab-case")]
     KeyFailure {
@@ -46,21 +46,18 @@ where
     V::PublicKey: Send + 'static,
     V::SecretKey: Send + 'static,
 {
-    IdTest::<V::LocalKey>::add_tests(name, tests);
-    IdTest::<V::SecretKey>::add_tests(name, tests);
-    IdTest::<V::PublicKey>::add_tests(name, tests);
+    IdTest::<V, Local>::add_tests(name, tests);
+    IdTest::<V, Secret>::add_tests(name, tests);
+    IdTest::<V, Public>::add_tests(name, tests);
 }
 
-impl<K: Key + Send + 'static> IdTest<K>
+impl<V: PaserkVersion, K: Marker> IdTest<V, K>
 where
-    K::Version: PaserkVersion,
+    K::Key<V>: Send + 'static,
 {
     fn add_tests(name: &str, tests: &mut Vec<Trial>) {
-        let test_file: TestFile<Self> = read_test(&format!(
-            "{}{}json",
-            <K::Version as PaserkVersion>::PASERK_HEADER,
-            <K::KeyType as Marker>::ID_HEADER
-        ));
+        let test_file: TestFile<Self> =
+            read_test(&format!("{}{}json", V::PASERK_HEADER, K::ID_HEADER));
         for test in test_file.tests {
             let name = format!("{name}::{}", test.name);
             tests.push(Trial::test(name, || test.test_data.test()));
@@ -70,8 +67,8 @@ where
     fn test(self) -> Result<(), Failed> {
         match self {
             IdTest::Success { paserk, key, .. } => {
-                let kid = KeyId::from(&KeyText::from(&key));
-                let kid2: KeyId<K> = paserk.parse()?;
+                let kid = key.id();
+                let kid2: KeyId<V, K> = paserk.parse()?;
 
                 if kid != kid2 {
                     return Err("decode failed".into());
@@ -82,7 +79,7 @@ where
 
                 Ok(())
             }
-            IdTest::KeyFailure { key, comment, .. } => match K::decode(&key) {
+            IdTest::KeyFailure { key, comment, .. } => match Key::<V, K>::from_raw_bytes(&key) {
                 Ok(_) => Err(comment.into()),
                 Err(_) => Ok(()),
             },

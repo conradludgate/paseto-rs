@@ -1,9 +1,8 @@
 //! PASETO v4 (libsodium)
 //!
 //! ```
-//! use paseto_v4_sodium::{SignedToken, VerifiedToken};
+//! use paseto_v4_sodium::{SignedToken, VerifiedToken, SecretKey, PublicKey};
 //! use paseto_v4_sodium::libsodium;
-//! use paseto_v4_sodium::key::{SecretKey, PublicKey, SealingKey};
 //! use paseto_json::{RegisteredClaims, Time, MustExpire, FromIssuer, ForSubject, Validate};
 //! use std::time::Duration;
 //!
@@ -12,7 +11,7 @@
 //!
 //! // create a new keypair
 //! let secret_key = SecretKey::random().unwrap();
-//! let public_key = secret_key.unsealing_key();
+//! let public_key = secret_key.public_key();
 //!
 //! // create a set of token claims
 //! let claims = RegisteredClaims::now(Duration::from_secs(3600))
@@ -85,24 +84,30 @@ impl paseto_core::version::PaserkVersion for V4 {
 }
 
 /// A token with publically readable data, but not yet verified
-pub type SignedToken<M, F = ()> = paseto_core::tokens::SignedToken<V4, M, F>;
+pub type SignedToken<M, F = ()> = paseto_core::SignedToken<V4, M, F>;
 /// A token with secret data
-pub type EncryptedToken<M, F = ()> = paseto_core::tokens::EncryptedToken<V4, M, F>;
+pub type EncryptedToken<M, F = ()> = paseto_core::EncryptedToken<V4, M, F>;
 /// A [`SignedToken`] that has been verified
-pub type VerifiedToken<M, F = ()> = paseto_core::tokens::VerifiedToken<V4, M, F>;
+pub type VerifiedToken<M, F = ()> = paseto_core::VerifiedToken<V4, M, F>;
 /// An [`EncryptedToken`] that has been decrypted
-pub type DecryptedToken<M, F = ()> = paseto_core::tokens::DecryptedToken<V4, M, F>;
+pub type DecryptedToken<M, F = ()> = paseto_core::DecryptedToken<V4, M, F>;
+
+pub type LocalKey = paseto_core::LocalKey<V4>;
+pub type PublicKey = paseto_core::PublicKey<V4>;
+pub type SecretKey = paseto_core::SecretKey<V4>;
+pub type KeyId<K> = paseto_core::key::KeyId<V4, K>;
+pub type KeyText<K> = paseto_core::key::KeyText<V4, K>;
+pub type SealedKey = paseto_core::key::SealedKey<V4>;
 
 pub use libsodium_rs as libsodium;
 
 pub mod key {
-    use core::fmt;
 
     use libsodium_rs::crypto_stream::{self, xchacha20};
     use libsodium_rs::utils::compare;
     use libsodium_rs::{crypto_generichash, crypto_sign, random};
     use paseto_core::PasetoError;
-    pub use paseto_core::key::{Key, KeyId, KeyText, SealingKey, UnsealingKey};
+    use paseto_core::key::{KeyKind, SealingKey, UnsealingKey};
     use paseto_core::pae::{WriteBytes, pre_auth_encode};
     use paseto_core::version::{Local, Marker, Public, Secret};
 
@@ -115,7 +120,7 @@ pub mod key {
     #[derive(Clone)]
     pub struct LocalKey([u8; 32]);
 
-    impl Key for LocalKey {
+    impl KeyKind for LocalKey {
         type Version = crate::V4;
         type KeyType = Local;
 
@@ -130,27 +135,10 @@ pub mod key {
         }
     }
 
-    impl core::str::FromStr for LocalKey {
-        type Err = PasetoError;
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            KeyText::from_str(s).and_then(|k| k.decode())
-        }
-    }
-
-    impl Key for PublicKey {
+    impl KeyKind for PublicKey {
         type Version = crate::V4;
         type KeyType = Public;
 
-        /// Decode a PEM encoded SEC1 Ed25519 Secret Key
-        ///
-        /// ```
-        /// use paseto_v4_sodium::key::{PublicKey, Key};
-        ///
-        /// let public_key = "b7715bd661458d928654d3e832f53ff5c9480542e0e3d4c9b032c768c7ce6023";
-        /// let public_key = hex::decode(&public_key).unwrap();
-        ///
-        /// let _key = PublicKey::decode(&public_key).unwrap();
-        /// ```
         fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
             crypto_sign::PublicKey::from_bytes(bytes)
                 .map(Self)
@@ -161,33 +149,10 @@ pub mod key {
         }
     }
 
-    impl fmt::Display for PublicKey {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            KeyText::from(self).fmt(f)
-        }
-    }
-
-    impl core::str::FromStr for PublicKey {
-        type Err = PasetoError;
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            KeyText::from_str(s).and_then(|k| k.decode())
-        }
-    }
-
-    impl Key for SecretKey {
+    impl KeyKind for SecretKey {
         type Version = crate::V4;
         type KeyType = Secret;
 
-        /// Decode an Ed25519 Secret Keypair
-        ///
-        /// ```
-        /// use paseto_v4_sodium::key::{SecretKey, Key};
-        ///
-        /// let private_key = "407796f4bc4b8184e9fe0c54b336822d34823092ad873d87ba14c3efb9db8c1db7715bd661458d928654d3e832f53ff5c9480542e0e3d4c9b032c768c7ce6023";
-        /// let private_key = hex::decode(&private_key).unwrap();
-        ///
-        /// let _key = SecretKey::decode(&private_key).unwrap();
-        /// ```
         fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
             crypto_sign::SecretKey::from_bytes(bytes)
                 .map(Self)
@@ -196,13 +161,6 @@ pub mod key {
 
         fn encode(&self) -> Box<[u8]> {
             self.0.as_bytes().to_vec().into_boxed_slice()
-        }
-    }
-
-    impl core::str::FromStr for SecretKey {
-        type Err = PasetoError;
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            KeyText::from_str(s).and_then(|k| k.decode())
         }
     }
 
@@ -230,8 +188,7 @@ pub mod key {
     }
 
     impl SealingKey<Local> for LocalKey {
-        type UnsealingKey = Self;
-        fn unsealing_key(&self) -> Self::UnsealingKey {
+        fn unsealing_key(&self) -> LocalKey {
             Self(self.0)
         }
 
@@ -306,8 +263,7 @@ pub mod key {
     }
 
     impl SealingKey<Public> for SecretKey {
-        type UnsealingKey = PublicKey;
-        fn unsealing_key(&self) -> Self::UnsealingKey {
+        fn unsealing_key(&self) -> PublicKey {
             let public_key = self
                 .0
                 .as_bytes()

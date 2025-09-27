@@ -1,14 +1,13 @@
 //! PASETO v3 (RustCrypto)
 //!
 //! ```
-//! use paseto_v3::{SignedToken, VerifiedToken};
-//! use paseto_v3::key::{SecretKey, PublicKey, SealingKey};
+//! use paseto_v3::{SignedToken, VerifiedToken, SecretKey, PublicKey};
 //! use paseto_json::{RegisteredClaims, Time, MustExpire, FromIssuer, ForSubject, Validate};
 //! use std::time::Duration;
 //!
 //! // create a new keypair
 //! let secret_key = SecretKey::random().unwrap();
-//! let public_key = secret_key.unsealing_key();
+//! let public_key = secret_key.public_key();
 //!
 //! // create a set of token claims
 //! let claims = RegisteredClaims::now(Duration::from_secs(3600))
@@ -85,17 +84,22 @@ impl paseto_core::version::PaserkVersion for V3 {
 }
 
 /// A token with publically readable data, but not yet verified
-pub type SignedToken<M, F = ()> = paseto_core::tokens::SignedToken<V3, M, F>;
+pub type SignedToken<M, F = ()> = paseto_core::SignedToken<V3, M, F>;
 /// A token with secret data
-pub type EncryptedToken<M, F = ()> = paseto_core::tokens::EncryptedToken<V3, M, F>;
+pub type EncryptedToken<M, F = ()> = paseto_core::EncryptedToken<V3, M, F>;
 /// A [`SignedToken`] that has been verified
-pub type VerifiedToken<M, F = ()> = paseto_core::tokens::VerifiedToken<V3, M, F>;
+pub type VerifiedToken<M, F = ()> = paseto_core::VerifiedToken<V3, M, F>;
 /// An [`EncryptedToken`] that has been decrypted
-pub type DecryptedToken<M, F = ()> = paseto_core::tokens::DecryptedToken<V3, M, F>;
+pub type DecryptedToken<M, F = ()> = paseto_core::DecryptedToken<V3, M, F>;
+
+pub type LocalKey = paseto_core::LocalKey<V3>;
+pub type PublicKey = paseto_core::PublicKey<V3>;
+pub type SecretKey = paseto_core::SecretKey<V3>;
+pub type KeyId<K> = paseto_core::key::KeyId<V3, K>;
+pub type KeyText<K> = paseto_core::key::KeyText<V3, K>;
+pub type SealedKey = paseto_core::key::SealedKey<V3>;
 
 pub mod key {
-    use core::fmt;
-
     use cipher::{ArrayLength, StreamCipher};
     use generic_array::GenericArray;
     use generic_array::sequence::Split;
@@ -104,7 +108,7 @@ pub mod key {
     use p384::ecdsa::signature::{DigestSigner, DigestVerifier};
     use p384::ecdsa::{Signature, SigningKey, VerifyingKey};
     use paseto_core::PasetoError;
-    pub use paseto_core::key::{Key, KeyId, KeyText, SealingKey, UnsealingKey};
+    use paseto_core::key::{KeyKind, SealingKey, UnsealingKey};
     use paseto_core::pae::{WriteBytes, pre_auth_encode};
     use paseto_core::version::{Local, Marker, Public, Secret};
     use sha2::{Digest, Sha384};
@@ -117,7 +121,7 @@ pub mod key {
     #[derive(Clone)]
     pub struct LocalKey([u8; 32]);
 
-    impl Key for LocalKey {
+    impl KeyKind for LocalKey {
         type Version = crate::V3;
         type KeyType = Local;
 
@@ -132,14 +136,7 @@ pub mod key {
         }
     }
 
-    impl core::str::FromStr for LocalKey {
-        type Err = PasetoError;
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            KeyText::from_str(s).and_then(|k| k.decode())
-        }
-    }
-
-    impl Key for PublicKey {
+    impl KeyKind for PublicKey {
         type Version = crate::V3;
         type KeyType = Public;
 
@@ -157,20 +154,7 @@ pub mod key {
         }
     }
 
-    impl fmt::Display for PublicKey {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            KeyText::from(self).fmt(f)
-        }
-    }
-
-    impl core::str::FromStr for PublicKey {
-        type Err = PasetoError;
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            KeyText::from_str(s).and_then(|k| k.decode())
-        }
-    }
-
-    impl Key for SecretKey {
+    impl KeyKind for SecretKey {
         type Version = crate::V3;
         type KeyType = Secret;
 
@@ -183,13 +167,6 @@ pub mod key {
         }
         fn encode(&self) -> Box<[u8]> {
             self.0.to_bytes().to_vec().into_boxed_slice()
-        }
-    }
-
-    impl core::str::FromStr for SecretKey {
-        type Err = PasetoError;
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            KeyText::from_str(s).and_then(|k| k.decode())
         }
     }
 
@@ -208,8 +185,7 @@ pub mod key {
     }
 
     impl SealingKey<Local> for LocalKey {
-        type UnsealingKey = Self;
-        fn unsealing_key(&self) -> Self::UnsealingKey {
+        fn unsealing_key(&self) -> Self {
             Self(self.0)
         }
 
@@ -279,8 +255,7 @@ pub mod key {
     }
 
     impl SealingKey<Public> for SecretKey {
-        type UnsealingKey = PublicKey;
-        fn unsealing_key(&self) -> Self::UnsealingKey {
+        fn unsealing_key(&self) -> PublicKey {
             PublicKey(*self.0.verifying_key())
         }
 

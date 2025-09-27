@@ -1,28 +1,84 @@
 use core::fmt;
 use std::hash::Hash;
 use std::marker::PhantomData;
+use std::str::FromStr;
 
 use crate::PasetoError;
-use crate::version::{self, Marker, PaserkVersion};
+use crate::version::{Local, Marker, PaserkVersion, Public, Purpose, Secret, Version};
 
 /// Defines a PASERK key type
-pub trait Key: Sized {
-    type Version: version::Version;
+pub trait KeyKind: Sized {
+    type Version: Version;
     type KeyType: Marker;
 
     fn encode(&self) -> Box<[u8]>;
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError>;
 }
 
+pub struct Key<V: Version, K: Marker>(pub(crate) K::Key<V>);
+
+pub type LocalKey<V> = Key<V, Local>;
+pub type PublicKey<V> = Key<V, Public>;
+pub type SecretKey<V> = Key<V, Secret>;
+
+impl<V: PaserkVersion, K: Marker> FromStr for Key<V, K> {
+    type Err = PasetoError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        KeyText::<V, K>::from_str(s).and_then(|k| k.decode())
+    }
+}
+
+impl<V: Version, K: Marker> Key<V, K> {
+    pub fn from_raw_bytes(b: &[u8]) -> Result<Self, PasetoError> {
+        KeyKind::decode(b).map(Self)
+    }
+
+    pub fn into_raw_bytes(&self) -> Box<[u8]> {
+        self.0.encode()
+    }
+}
+
+impl<V: Version> SecretKey<V> {
+    pub fn random() -> Result<Self, PasetoError> {
+        SealingKey::random().map(Self)
+    }
+
+    pub fn public_key(&self) -> PublicKey<V> {
+        Key(self.0.unsealing_key())
+    }
+}
+
+impl<V: Version> LocalKey<V> {
+    pub fn random() -> Result<Self, PasetoError> {
+        SealingKey::random().map(Self)
+    }
+}
+
+impl<V: PaserkVersion> fmt::Display for PublicKey<V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.expose_key().fmt(f)
+    }
+}
+
+impl<V: PaserkVersion, K: Marker> Key<V, K> {
+    pub fn expose_key(&self) -> KeyText<V, K> {
+        KeyText {
+            data: self.0.encode(),
+            _key: PhantomData,
+        }
+    }
+
+    pub fn id(&self) -> KeyId<V, K> {
+        KeyId::from(&self.expose_key())
+    }
+}
+
 /// Defines a secret PASETO key that can be used to create PASETO tokens.
 ///
 /// We define "sealing" as encrypting or deriving a new signature.
-pub trait SealingKey<Purpose>: Key {
-    /// The type of key that can unseal the tokens we will seal.
-    type UnsealingKey: UnsealingKey<Purpose, Version = Self::Version>;
-
+pub trait SealingKey<P: Purpose>: KeyKind {
     /// Generate the key that can unseal the tokens this key will seal.
-    fn unsealing_key(&self) -> Self::UnsealingKey;
+    fn unsealing_key(&self) -> <P::UnsealingMarker as Marker>::Key<Self::Version>;
 
     /// Generate a random key
     fn random() -> Result<Self, PasetoError>;
@@ -43,7 +99,7 @@ pub trait SealingKey<Purpose>: Key {
 /// Defines a PASETO key that can be used to validate and read PASETO tokens.
 ///
 /// We define "unsealing" as decrypting or validating a signature.
-pub trait UnsealingKey<Purpose>: Key {
+pub trait UnsealingKey<Purpose>: KeyKind {
     fn unseal<'a>(
         &self,
         encoding: &'static str,
@@ -54,47 +110,41 @@ pub trait UnsealingKey<Purpose>: Key {
 }
 
 /// A short ID for a key.
-pub struct KeyId<K: Key> {
+pub struct KeyId<V: PaserkVersion, K: Marker> {
     id: [u8; 33],
-    _key: PhantomData<K>,
+    _key: PhantomData<(V, K)>,
 }
 
-impl<K: Key> PartialEq for KeyId<K> {
+impl<V: PaserkVersion, K: Marker> PartialEq for KeyId<V, K> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<K: Key> PartialOrd for KeyId<K> {
+impl<V: PaserkVersion, K: Marker> PartialOrd for KeyId<V, K> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<K: Key> Eq for KeyId<K> {}
+impl<V: PaserkVersion, K: Marker> Eq for KeyId<V, K> {}
 
-impl<K: Key> Ord for KeyId<K> {
+impl<V: PaserkVersion, K: Marker> Ord for KeyId<V, K> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.id.cmp(&other.id)
     }
 }
 
-impl<K: Key> Hash for KeyId<K> {
+impl<V: PaserkVersion, K: Marker> Hash for KeyId<V, K> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
 }
 
-impl<K: Key> From<&KeyText<K>> for KeyId<K>
-where
-    K::Version: PaserkVersion,
-{
-    fn from(value: &KeyText<K>) -> Self {
+impl<V: PaserkVersion, K: Marker> From<&KeyText<V, K>> for KeyId<V, K> {
+    fn from(value: &KeyText<V, K>) -> Self {
         Self {
-            id: <K::Version as PaserkVersion>::hash_key(
-                <K::KeyType as Marker>::ID_HEADER,
-                value.to_string().as_bytes(),
-            ),
+            id: V::hash_key(K::ID_HEADER, value.to_string().as_bytes()),
             _key: value._key,
         }
     }
@@ -103,75 +153,60 @@ where
 /// A plaintext encoding of a key.
 ///
 /// Be advised that this encoding has no extra security, so it is not safe to transport as is.
-pub struct KeyText<K: Key> {
+pub struct KeyText<V: PaserkVersion, K: Marker> {
     data: Box<[u8]>,
-    _key: PhantomData<K>,
+    _key: PhantomData<(V, K)>,
 }
 
-impl<K: Key> PartialEq for KeyText<K> {
+impl<V: PaserkVersion, K: Marker> PartialEq for KeyText<V, K> {
     fn eq(&self, other: &Self) -> bool {
         self.data == other.data
     }
 }
 
-impl<K: Key> PartialOrd for KeyText<K> {
+impl<V: PaserkVersion, K: Marker> PartialOrd for KeyText<V, K> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<K: Key> Eq for KeyText<K> {}
+impl<V: PaserkVersion, K: Marker> Eq for KeyText<V, K> {}
 
-impl<K: Key> Ord for KeyText<K> {
+impl<V: PaserkVersion, K: Marker> Ord for KeyText<V, K> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.data.cmp(&other.data)
     }
 }
 
-impl<K: Key> Hash for KeyText<K> {
+impl<V: PaserkVersion, K: Marker> Hash for KeyText<V, K> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.data.hash(state);
     }
 }
 
-impl<K: Key> KeyText<K> {
-    pub fn decode(&self) -> Result<K, PasetoError> {
-        K::decode(&self.data)
+impl<V: PaserkVersion, K: Marker> KeyText<V, K> {
+    pub fn decode(&self) -> Result<Key<V, K>, PasetoError> {
+        <K::Key<V>>::decode(&self.data).map(Key)
     }
 }
 
-impl<K: Key> From<&K> for KeyText<K> {
-    fn from(value: &K) -> Self {
-        Self {
-            data: value.encode(),
-            _key: PhantomData,
-        }
-    }
-}
-
-impl<K: Key> fmt::Display for KeyId<K>
-where
-    K::Version: PaserkVersion,
-{
+impl<V: PaserkVersion, K: Marker> fmt::Display for KeyId<V, K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(<K::Version as PaserkVersion>::PASERK_HEADER)?;
-        f.write_str(<K::KeyType as Marker>::ID_HEADER)?;
+        f.write_str(V::PASERK_HEADER)?;
+        f.write_str(K::ID_HEADER)?;
         crate::base64::write_to_fmt(&self.id, f)
     }
 }
 
-impl<K: Key> std::str::FromStr for KeyId<K>
-where
-    K::Version: PaserkVersion,
-{
+impl<V: PaserkVersion, K: Marker> std::str::FromStr for KeyId<V, K> {
     type Err = PasetoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s
-            .strip_prefix(<K::Version as PaserkVersion>::PASERK_HEADER)
+            .strip_prefix(V::PASERK_HEADER)
             .ok_or(PasetoError::InvalidKey)?;
         let s = s
-            .strip_prefix(<K::KeyType as Marker>::ID_HEADER)
+            .strip_prefix(K::ID_HEADER)
             .ok_or(PasetoError::InvalidKey)?;
 
         let mut id = [0u8; 33];
@@ -186,30 +221,22 @@ where
     }
 }
 
-impl<K: Key> fmt::Display for KeyText<K>
-where
-    K::Version: PaserkVersion,
-{
+impl<V: PaserkVersion, K: Marker> fmt::Display for KeyText<V, K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(<K::Version as PaserkVersion>::PASERK_HEADER)?;
-        f.write_str(<K::KeyType as Marker>::HEADER)?;
+        f.write_str(V::PASERK_HEADER)?;
+        f.write_str(K::HEADER)?;
         crate::base64::write_to_fmt(&self.data, f)
     }
 }
 
-impl<K: Key> std::str::FromStr for KeyText<K>
-where
-    K::Version: PaserkVersion,
-{
+impl<V: PaserkVersion, K: Marker> std::str::FromStr for KeyText<V, K> {
     type Err = PasetoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s
-            .strip_prefix(<K::Version as PaserkVersion>::PASERK_HEADER)
+            .strip_prefix(V::PASERK_HEADER)
             .ok_or(PasetoError::InvalidKey)?;
-        let s = s
-            .strip_prefix(<K::KeyType as Marker>::HEADER)
-            .ok_or(PasetoError::InvalidKey)?;
+        let s = s.strip_prefix(K::HEADER).ok_or(PasetoError::InvalidKey)?;
 
         let data = crate::base64::decode_vec(s)?.into_boxed_slice();
 
@@ -258,15 +285,17 @@ impl<V: PaserkVersion> std::str::FromStr for SealedKey<V> {
     }
 }
 
-impl<V: PaserkVersion> SealedKey<V> {
-    pub fn seal(key: V::LocalKey, with: &V::PublicKey) -> Result<Self, PasetoError> {
-        V::seal_key(with, key).map(|key_data| SealedKey {
+impl<V: PaserkVersion> PublicKey<V> {
+    pub fn seal(&self, key: LocalKey<V>) -> Result<SealedKey<V>, PasetoError> {
+        V::seal_key(&self.0, key.0).map(|key_data| SealedKey {
             key_data,
             _version: PhantomData,
         })
     }
+}
 
-    pub fn unseal(self, with: &V::SecretKey) -> Result<V::LocalKey, PasetoError> {
-        V::unseal_key(with, self.key_data)
+impl<V: PaserkVersion> SecretKey<V> {
+    pub fn unseal(&self, key: SealedKey<V>) -> Result<LocalKey<V>, PasetoError> {
+        V::unseal_key(&self.0, key.key_data).map(Key)
     }
 }

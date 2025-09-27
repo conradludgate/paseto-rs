@@ -6,6 +6,7 @@ pub mod tokens;
 pub mod validation;
 pub mod version;
 
+pub use key::{LocalKey, PublicKey, SecretKey};
 pub use tokens::{DecryptedToken, EncryptedToken, SignedToken, VerifiedToken};
 
 mod sealed {

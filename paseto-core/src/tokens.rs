@@ -3,9 +3,10 @@
 use std::marker::PhantomData;
 
 use crate::encodings::{Footer, Payload};
-use crate::key::{SealingKey, UnsealingKey};
+use crate::key::{Key, SealingKey, UnsealingKey};
 use crate::validation::Validate;
-use crate::{PasetoError, version};
+use crate::version::{SealingMarker, UnsealingMarker};
+use crate::{LocalKey, PasetoError, PublicKey, SecretKey, version};
 
 /// A token with publically readable data, but not yet verified
 pub type SignedToken<V, M, F = ()> = SealedToken<V, version::Public, M, F>;
@@ -93,11 +94,16 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> SealedToke
     #[doc(alias = "verify")]
     pub fn unseal(
         mut self,
-        key: &P::UnsealingKey<V>,
+        key: &Key<V, P::UnsealingMarker>,
         aad: &[u8],
         v: &impl Validate<Claims = M>,
     ) -> Result<UnsealedToken<V, P, M, F>, PasetoError> {
-        let cleartext = key.unseal(M::SUFFIX, &mut self.payload, &self.encoded_footer, aad)?;
+        let cleartext = P::UnsealingMarker::coerce_types(&key.0).unseal(
+            M::SUFFIX,
+            &mut self.payload,
+            &self.encoded_footer,
+            aad,
+        )?;
 
         let message = M::decode(cleartext)
             .map_err(std::io::Error::other)
@@ -120,10 +126,14 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
     #[inline(always)]
     pub fn seal(
         self,
-        key: &P::SealingKey<V>,
+        key: &Key<V, P::SealingMarker>,
         aad: &[u8],
     ) -> Result<SealedToken<V, P, M, F>, PasetoError> {
-        self.dangerous_seal_with_nonce(key, aad, <P::SealingKey<V>>::nonce()?)
+        self.dangerous_seal_with_nonce(
+            key,
+            aad,
+            <P::SealingMarker as SealingMarker>::SealingKey::<V>::nonce()?,
+        )
     }
 
     /// Use [`UnsealedToken::seal`](crate::tokens::UnsealedToken::seal) instead.
@@ -132,7 +142,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
     /// Do not use this method directly.
     pub fn dangerous_seal_with_nonce(
         self,
-        key: &P::SealingKey<V>,
+        key: &Key<V, P::SealingMarker>,
         aad: &[u8],
         nonce: Vec<u8>,
     ) -> Result<SealedToken<V, P, M, F>, PasetoError> {
@@ -147,7 +157,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
             .encode(&mut payload)
             .map_err(PasetoError::PayloadError)?;
 
-        let payload = key
+        let payload = P::SealingMarker::coerce_types(&key.0)
             .dangerous_seal_with_nonce(M::SUFFIX, payload, &footer, aad)?
             .into_boxed_slice();
 
@@ -167,7 +177,7 @@ impl<V: version::Version, M: Payload, F: Footer> EncryptedToken<V, M, F> {
     #[inline(always)]
     pub fn decrypt(
         self,
-        key: &V::LocalKey,
+        key: &LocalKey<V>,
         v: &impl Validate<Claims = M>,
     ) -> Result<DecryptedToken<V, M, F>, PasetoError> {
         self.decrypt_with_aad(key, &[], v)
@@ -177,7 +187,7 @@ impl<V: version::Version, M: Payload, F: Footer> EncryptedToken<V, M, F> {
     #[inline(always)]
     pub fn decrypt_with_aad(
         self,
-        key: &V::LocalKey,
+        key: &LocalKey<V>,
         aad: &[u8],
         v: &impl Validate<Claims = M>,
     ) -> Result<DecryptedToken<V, M, F>, PasetoError> {
@@ -188,7 +198,7 @@ impl<V: version::Version, M: Payload, F: Footer> EncryptedToken<V, M, F> {
 impl<V: version::Version, M: Payload, F: Footer> DecryptedToken<V, M, F> {
     /// Encrypt the token
     #[inline(always)]
-    pub fn encrypt(self, key: &V::LocalKey) -> Result<EncryptedToken<V, M, F>, PasetoError> {
+    pub fn encrypt(self, key: &LocalKey<V>) -> Result<EncryptedToken<V, M, F>, PasetoError> {
         self.encrypt_with_aad(key, &[])
     }
 
@@ -196,7 +206,7 @@ impl<V: version::Version, M: Payload, F: Footer> DecryptedToken<V, M, F> {
     #[inline(always)]
     pub fn encrypt_with_aad(
         self,
-        key: &V::LocalKey,
+        key: &LocalKey<V>,
         aad: &[u8],
     ) -> Result<EncryptedToken<V, M, F>, PasetoError> {
         self.seal(key, aad)
@@ -208,7 +218,7 @@ impl<V: version::Version, M: Payload, F: Footer> SignedToken<V, M, F> {
     #[inline(always)]
     pub fn verify(
         self,
-        key: &V::PublicKey,
+        key: &PublicKey<V>,
         v: &impl Validate<Claims = M>,
     ) -> Result<VerifiedToken<V, M, F>, PasetoError> {
         self.verify_with_aad(key, &[], v)
@@ -218,7 +228,7 @@ impl<V: version::Version, M: Payload, F: Footer> SignedToken<V, M, F> {
     #[inline(always)]
     pub fn verify_with_aad(
         self,
-        key: &V::PublicKey,
+        key: &PublicKey<V>,
         aad: &[u8],
         v: &impl Validate<Claims = M>,
     ) -> Result<VerifiedToken<V, M, F>, PasetoError> {
@@ -229,7 +239,7 @@ impl<V: version::Version, M: Payload, F: Footer> SignedToken<V, M, F> {
 impl<V: version::Version, M: Payload, F: Footer> VerifiedToken<V, M, F> {
     /// Sign the token
     #[inline(always)]
-    pub fn sign(self, key: &V::SecretKey) -> Result<SignedToken<V, M, F>, PasetoError> {
+    pub fn sign(self, key: &SecretKey<V>) -> Result<SignedToken<V, M, F>, PasetoError> {
         self.sign_with_aad(key, &[])
     }
 
@@ -237,7 +247,7 @@ impl<V: version::Version, M: Payload, F: Footer> VerifiedToken<V, M, F> {
     #[inline(always)]
     pub fn sign_with_aad(
         self,
-        key: &V::SecretKey,
+        key: &SecretKey<V>,
         aad: &[u8],
     ) -> Result<SignedToken<V, M, F>, PasetoError> {
         self.seal(key, aad)

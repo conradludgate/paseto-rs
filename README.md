@@ -19,7 +19,7 @@ use std::time::Duration;
 
 // create a new keypair
 let secret_key = SecretKey::random().unwrap();
-let public_key = secret_key.unsealing_key();
+let public_key = secret_key.public_key();
 
 // create a set of token claims
 let claims = RegisteredClaims::now(Duration::from_secs(3600))

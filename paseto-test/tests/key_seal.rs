@@ -2,7 +2,8 @@ use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
 use paseto_core::key::{Key, SealedKey};
-use paseto_core::version::PaserkVersion;
+use paseto_core::version::{Marker, PaserkVersion};
+use paseto_core::{LocalKey, PublicKey, SecretKey};
 use paseto_test::{Bool, TestFile, read_test};
 use serde::Deserialize;
 
@@ -19,7 +20,7 @@ fn main() {
     libtest_mimic::run(&args, tests).exit();
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 #[serde(untagged, bound = "")]
 enum SealTest<V: PaserkVersion> {
     #[serde(rename_all = "kebab-case")]
@@ -27,11 +28,11 @@ enum SealTest<V: PaserkVersion> {
         #[expect(unused)]
         expect_fail: Bool<false>,
         #[serde(deserialize_with = "paseto_test::deserialize_key")]
-        sealing_secret_key: V::SecretKey,
+        sealing_secret_key: SecretKey<V>,
         #[serde(deserialize_with = "paseto_test::deserialize_key")]
-        sealing_public_key: V::PublicKey,
+        sealing_public_key: PublicKey<V>,
         #[serde(deserialize_with = "paseto_test::deserialize_key")]
-        unsealed: V::LocalKey,
+        unsealed: LocalKey<V>,
         paserk: String,
     },
     #[serde(rename_all = "kebab-case")]
@@ -40,15 +41,15 @@ enum SealTest<V: PaserkVersion> {
         expect_fail: Bool<true>,
         comment: String,
         #[serde(deserialize_with = "paseto_test::deserialize_key")]
-        sealing_secret_key: V::SecretKey,
+        sealing_secret_key: SecretKey<V>,
         #[expect(unused)]
         unsealed: (),
         paserk: String,
     },
 }
 
-fn eq_keys<K: Key>(k1: &K, k2: &K) -> bool {
-    k1.encode() == k2.encode()
+fn eq_keys<V: PaserkVersion, K: Marker>(k1: &Key<V, K>, k2: &Key<V, K>) -> bool {
+    k1.expose_key() == k2.expose_key()
 }
 
 impl<V: PaserkVersion + 'static> SealTest<V>
@@ -75,13 +76,13 @@ where
                 ..
             } => {
                 let sealed: SealedKey<V> = paserk.parse()?;
-                let key = sealed.unseal(&sealing_secret_key)?;
+                let key = sealing_secret_key.unseal(sealed)?;
 
                 assert!(eq_keys(&key, &unsealed));
 
-                let sealed = SealedKey::<V>::seal(unsealed, &sealing_public_key)?;
+                let sealed = sealing_public_key.seal(unsealed)?;
 
-                let key2 = sealed.unseal(&sealing_secret_key)?;
+                let key2 = sealing_secret_key.unseal(sealed)?;
                 assert!(eq_keys(&key, &key2));
 
                 Ok(())
@@ -97,7 +98,7 @@ where
                     Err(_) => return Ok(()),
                 };
 
-                match key.unseal(&sealing_secret_key) {
+                match sealing_secret_key.unseal(key) {
                     Ok(_) => Err(comment.into()),
                     Err(_) => Ok(()),
                 }

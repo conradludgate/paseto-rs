@@ -1,4 +1,5 @@
-use paseto_v3::key::Key;
+use paseto_core::key::Key;
+use paseto_core::version::{Marker, Version};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
 
@@ -57,6 +58,8 @@ pub fn deserialize_hex<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Er
     hex::decode(s).map_err(serde::de::Error::custom)
 }
 
-pub fn deserialize_key<'de, D: Deserializer<'de>, K: Key>(d: D) -> Result<K, D::Error> {
-    K::decode(&deserialize_hex(d)?).map_err(serde::de::Error::custom)
+pub fn deserialize_key<'de, D: Deserializer<'de>, V: Version, K: Marker>(
+    d: D,
+) -> Result<Key<V, K>, D::Error> {
+    Key::<V, K>::from_raw_bytes(&deserialize_hex(d)?).map_err(serde::de::Error::custom)
 }

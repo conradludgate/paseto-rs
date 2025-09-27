@@ -2,6 +2,7 @@ use libtest_mimic::{Arguments, Failed, Trial};
 use paseto_core::tokens::{DecryptedToken, EncryptedToken, SignedToken, VerifiedToken};
 use paseto_core::validation::NoValidation;
 use paseto_core::version::Version;
+use paseto_core::{LocalKey, PublicKey, SecretKey};
 use paseto_json::Json;
 use paseto_test::{Bool, TestFile, read_test};
 use serde::Deserialize;
@@ -95,6 +96,7 @@ where
 
                 let token = DecryptedToken::<V, _>::new(decrypted_token.claims)
                     .with_footer(decrypted_token.footer);
+
                 let token = token
                     .dangerous_seal_with_nonce(&key, implicit_assertion.as_bytes(), nonce)
                     .unwrap();
@@ -177,7 +179,7 @@ where
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 #[serde(untagged, bound = "")]
 enum PasetoPurpose<V: Version> {
     #[serde(rename_all = "kebab-case")]
@@ -185,14 +187,14 @@ enum PasetoPurpose<V: Version> {
         #[serde(deserialize_with = "paseto_test::deserialize_hex")]
         nonce: Vec<u8>,
         #[serde(deserialize_with = "paseto_test::deserialize_key")]
-        key: V::LocalKey,
+        key: LocalKey<V>,
     },
     #[serde(rename_all = "kebab-case")]
     Public {
         #[serde(deserialize_with = "paseto_test::deserialize_key")]
-        public_key: V::PublicKey,
+        public_key: PublicKey<V>,
         #[serde(deserialize_with = "paseto_test::deserialize_key")]
-        secret_key: V::SecretKey,
+        secret_key: SecretKey<V>,
     },
 }
 
