@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 
 use crate::encodings::{Footer, Payload};
 use crate::key::{SealingKey, UnsealingKey};
+use crate::validation::Validate;
 use crate::{PasetoError, version};
 
 /// A token with publically readable data, but not yet verified
@@ -94,12 +95,15 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> SealedToke
         mut self,
         key: &P::UnsealingKey<V>,
         aad: &[u8],
+        v: &impl Validate<Claims = M>,
     ) -> Result<UnsealedToken<V, P, M, F>, PasetoError> {
         let cleartext = key.unseal(M::SUFFIX, &mut self.payload, &self.encoded_footer, aad)?;
 
         let message = M::decode(cleartext)
             .map_err(std::io::Error::other)
             .map_err(PasetoError::PayloadError)?;
+
+        v.validate(&message)?;
 
         Ok(UnsealedToken {
             claims: message,
@@ -113,6 +117,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> SealedToke
 impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedToken<V, P, M, F> {
     #[doc(alias = "encrypt")]
     #[doc(alias = "sign")]
+    #[inline(always)]
     pub fn seal(
         self,
         key: &P::SealingKey<V>,
@@ -122,6 +127,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
     }
 
     /// Use [`UnsealedToken::seal`](crate::tokens::UnsealedToken::seal) instead.
+    ///
     /// This is provided for testing purposes only.
     /// Do not use this method directly.
     pub fn dangerous_seal_with_nonce(
@@ -159,8 +165,12 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
 impl<V: version::Version, M: Payload, F: Footer> EncryptedToken<V, M, F> {
     /// Try to decrypt the token
     #[inline(always)]
-    pub fn decrypt(self, key: &V::LocalKey) -> Result<DecryptedToken<V, M, F>, PasetoError> {
-        self.decrypt_with_aad(key, &[])
+    pub fn decrypt(
+        self,
+        key: &V::LocalKey,
+        v: &impl Validate<Claims = M>,
+    ) -> Result<DecryptedToken<V, M, F>, PasetoError> {
+        self.decrypt_with_aad(key, &[], v)
     }
 
     /// Try to decrypt the token and authenticate the implicit assertion
@@ -169,8 +179,9 @@ impl<V: version::Version, M: Payload, F: Footer> EncryptedToken<V, M, F> {
         self,
         key: &V::LocalKey,
         aad: &[u8],
+        v: &impl Validate<Claims = M>,
     ) -> Result<DecryptedToken<V, M, F>, PasetoError> {
-        self.unseal(key, aad)
+        self.unseal(key, aad, v)
     }
 }
 
@@ -195,8 +206,12 @@ impl<V: version::Version, M: Payload, F: Footer> DecryptedToken<V, M, F> {
 impl<V: version::Version, M: Payload, F: Footer> SignedToken<V, M, F> {
     /// Try to verify the token signature
     #[inline(always)]
-    pub fn verify(self, key: &V::PublicKey) -> Result<VerifiedToken<V, M, F>, PasetoError> {
-        self.verify_with_aad(key, &[])
+    pub fn verify(
+        self,
+        key: &V::PublicKey,
+        v: &impl Validate<Claims = M>,
+    ) -> Result<VerifiedToken<V, M, F>, PasetoError> {
+        self.verify_with_aad(key, &[], v)
     }
 
     /// Try to verify the token signature and authenticate the implicit assertion
@@ -205,8 +220,9 @@ impl<V: version::Version, M: Payload, F: Footer> SignedToken<V, M, F> {
         self,
         key: &V::PublicKey,
         aad: &[u8],
+        v: &impl Validate<Claims = M>,
     ) -> Result<VerifiedToken<V, M, F>, PasetoError> {
-        self.unseal(key, aad)
+        self.unseal(key, aad, v)
     }
 }
 

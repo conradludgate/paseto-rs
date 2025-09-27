@@ -4,6 +4,7 @@ use std::time::Duration;
 pub use jiff;
 use paseto_core::PasetoError;
 use paseto_core::encodings::{Footer, Payload};
+pub use paseto_core::validation::Validate;
 use serde_core::de::{DeserializeOwned, MapAccess, Visitor};
 use serde_core::ser::SerializeStruct;
 use serde_core::{Deserialize, Deserializer, Serialize, Serializer};
@@ -74,6 +75,130 @@ pub struct RegisteredClaims {
     pub jti: Option<String>,
 }
 
+pub struct Time {
+    now: jiff::Timestamp,
+}
+
+impl Time {
+    pub fn now() -> Self {
+        Self {
+            now: jiff::Timestamp::now(),
+        }
+    }
+
+    pub fn new(now: jiff::Timestamp) -> Self {
+        Self { now }
+    }
+
+    pub fn with_leeway(self, leeway: Duration) -> TimeWithLeeway {
+        TimeWithLeeway {
+            now: self.now,
+            leeway,
+        }
+    }
+}
+
+impl Validate for Time {
+    type Claims = RegisteredClaims;
+
+    fn validate(&self, claims: &Self::Claims) -> Result<(), PasetoError> {
+        if let Some(exp) = claims.exp
+            && exp < self.now
+        {
+            return Err(PasetoError::ClaimsError);
+        }
+
+        if let Some(nbf) = claims.nbf
+            && self.now < nbf
+        {
+            return Err(PasetoError::ClaimsError);
+        }
+
+        Ok(())
+    }
+}
+
+pub struct TimeWithLeeway {
+    now: jiff::Timestamp,
+    leeway: std::time::Duration,
+}
+
+impl Validate for TimeWithLeeway {
+    type Claims = RegisteredClaims;
+
+    fn validate(&self, claims: &Self::Claims) -> Result<(), PasetoError> {
+        if let Some(exp) = claims.exp
+            && exp < self.now - self.leeway
+        {
+            return Err(PasetoError::ClaimsError);
+        }
+
+        if let Some(nbf) = claims.nbf
+            && self.now + self.leeway < nbf
+        {
+            return Err(PasetoError::ClaimsError);
+        }
+
+        Ok(())
+    }
+}
+
+pub struct ForSubject<T: AsRef<str>>(pub T);
+
+impl<T: AsRef<str>> Validate for ForSubject<T> {
+    type Claims = RegisteredClaims;
+
+    fn validate(&self, claims: &Self::Claims) -> Result<(), PasetoError> {
+        if claims.sub.as_deref() != Some(self.0.as_ref()) {
+            return Err(PasetoError::ClaimsError);
+        }
+
+        Ok(())
+    }
+}
+
+pub struct FromIssuer<T: AsRef<str>>(pub T);
+
+impl<T: AsRef<str>> Validate for FromIssuer<T> {
+    type Claims = RegisteredClaims;
+
+    fn validate(&self, claims: &Self::Claims) -> Result<(), PasetoError> {
+        if claims.iss.as_deref() != Some(self.0.as_ref()) {
+            return Err(PasetoError::ClaimsError);
+        }
+
+        Ok(())
+    }
+}
+
+pub struct ForAudience<T: AsRef<str>>(pub T);
+
+impl<T: AsRef<str>> Validate for ForAudience<T> {
+    type Claims = RegisteredClaims;
+
+    fn validate(&self, claims: &Self::Claims) -> Result<(), PasetoError> {
+        if claims.aud.as_deref() != Some(self.0.as_ref()) {
+            return Err(PasetoError::ClaimsError);
+        }
+
+        Ok(())
+    }
+}
+
+pub struct MustExpire;
+
+impl Validate for MustExpire {
+    type Claims = RegisteredClaims;
+
+    fn validate(&self, claims: &Self::Claims) -> Result<(), PasetoError> {
+        if claims.exp.is_none() {
+            return Err(PasetoError::ClaimsError);
+        }
+
+        Ok(())
+    }
+}
+
 impl RegisteredClaims {
     pub fn new(now: jiff::Timestamp, exp: Duration) -> Self {
         Self {
@@ -109,60 +234,6 @@ impl RegisteredClaims {
     pub fn with_token_id(mut self, jti: String) -> Self {
         self.jti = Some(jti);
         self
-    }
-}
-
-impl RegisteredClaims {
-    pub fn validate_time(&self) -> Result<(), PasetoError> {
-        self.validate_with_time(jiff::Timestamp::now(), Duration::from_secs(5))
-    }
-
-    pub fn validate_with_time(
-        &self,
-        now: jiff::Timestamp,
-        leeway: Duration,
-    ) -> Result<(), PasetoError> {
-        if let Some(exp) = self.exp
-            && exp + leeway < now
-        {
-            return Err(PasetoError::ClaimsError);
-        }
-        if let Some(nbf) = self.nbf
-            && now + leeway < nbf
-        {
-            return Err(PasetoError::ClaimsError);
-        }
-        if let Some(iat) = self.iat
-            && now + leeway < iat
-        {
-            return Err(PasetoError::ClaimsError);
-        }
-
-        Ok(())
-    }
-
-    pub fn validate_audience(&self, aud: &str) -> Result<(), PasetoError> {
-        if self.aud.as_deref() != Some(aud) {
-            return Err(PasetoError::ClaimsError);
-        }
-
-        Ok(())
-    }
-
-    pub fn validate_issuer(&self, iss: &str) -> Result<(), PasetoError> {
-        if self.iss.as_deref() != Some(iss) {
-            return Err(PasetoError::ClaimsError);
-        }
-
-        Ok(())
-    }
-
-    pub fn validate_subject(&self, sub: &str) -> Result<(), PasetoError> {
-        if self.sub.as_deref() != Some(sub) {
-            return Err(PasetoError::ClaimsError);
-        }
-
-        Ok(())
     }
 }
 

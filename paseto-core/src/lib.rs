@@ -3,7 +3,10 @@ pub mod encodings;
 pub mod key;
 pub mod pae;
 pub mod tokens;
+pub mod validation;
 pub mod version;
+
+pub use tokens::{DecryptedToken, EncryptedToken, SignedToken, VerifiedToken};
 
 mod sealed {
     pub trait Sealed {}

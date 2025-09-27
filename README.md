@@ -4,15 +4,16 @@
 
 * `paseto-core`, contains core types and traits common to all versions of PASETO
 * `paseto-json`, a serde-json based companion, since all current versions of PASETO require JSON.
-* `paseto-v3`, an aws-lc-rs based implementation of PASETO v3
+* `paseto-v3`, a RustCrypto based implementation of PASETO v3
+* `paseto-v3-aws-lc`, an aws-lc-rs based implementation of PASETO v3
 * `paseto-v4`, a RustCrypto based implementation of PASETO v4
 * `paseto-v4-sodium`, a libsodium based implementation of PASETO v4
 
 ## Examples
 
 ```rust
-use paseto_v4::{SignedToken, VerifiedToken};
-use paseto_v4::key::{SecretKey, PublicKey, SealingKey};
+use paseto_v4::VerifiedToken;
+use paseto_v4::key::{SecretKey, SealingKey};
 use paseto_json::RegisteredClaims;
 use std::time::Duration;
 
@@ -38,15 +39,20 @@ let key = public_key.to_string();
 ```
 
 ```rust
+use paseto_v4::SignedToken;
+use paseto_v4::key::PublicKey;
+use paseto_json::{RegisteredClaims, Time, MustExpire, FromIssuer, ForSubject, Validate};
+
 // parse the token
 let signed_token: SignedToken<RegisteredClaims> = token.parse().unwrap();
 
 // parse the key
 let public_key: PublicKey = key.parse().unwrap();
 
-// verify the token
-let verified_token = signed_token.verify(&public_key).unwrap();
-
-// verify the claims
-verified_token.claims.validate_time().unwrap();
+// verify the token signature and validate the claims.
+let validation = Time::now()
+    .then(MustExpire)
+    .then(FromIssuer("https://paseto.conrad.cafe/"))
+    .then(ForSubject("conradludgate"));
+let verified_token = signed_token.verify(&public_key, &validation).unwrap();
 ```

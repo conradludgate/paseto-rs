@@ -3,7 +3,7 @@
 //! ```
 //! use paseto_v3_aws_lc::{SignedToken, VerifiedToken};
 //! use paseto_v3_aws_lc::key::{SecretKey, PublicKey, SealingKey};
-//! use paseto_json::{RegisteredClaims, jiff};
+//! use paseto_json::{RegisteredClaims, Time, MustExpire, FromIssuer, ForSubject, Validate};
 //! use std::time::Duration;
 //!
 //! // create a new keypair
@@ -34,11 +34,12 @@
 //! // parse the key
 //! let public_key: PublicKey = key.parse().unwrap();
 //!
-//! // verify the token
-//! let verified_token = signed_token.verify(&public_key).unwrap();
-//!
-//! // verify the claims
-//! verified_token.claims.validate_time().unwrap();
+//! // verify the token signature and validate the claims.
+//! let validation = Time::now()
+//!     .then(MustExpire)
+//!     .then(FromIssuer("https://paseto.conrad.cafe/"))
+//!     .then(ForSubject("conradludgate"));
+//! let verified_token = signed_token.verify(&public_key, &validation).unwrap();
 //! ```
 
 pub use paseto_core::PasetoError;

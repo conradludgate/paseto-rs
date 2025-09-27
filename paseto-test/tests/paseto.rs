@@ -1,5 +1,6 @@
 use libtest_mimic::{Arguments, Failed, Trial};
 use paseto_core::tokens::{DecryptedToken, EncryptedToken, SignedToken, VerifiedToken};
+use paseto_core::validation::NoValidation;
 use paseto_core::version::Version;
 use paseto_json::Json;
 use paseto_test::{Bool, TestFile, read_test};
@@ -61,7 +62,11 @@ where
                 };
                 assert_eq!(token.unverified_footer(), footer.as_bytes());
 
-                match token.decrypt_with_aad(&key, implicit_assertion.as_bytes()) {
+                match token.decrypt_with_aad(
+                    &key,
+                    implicit_assertion.as_bytes(),
+                    &NoValidation::dangerous_no_validation(),
+                ) {
                     Ok(_) => Err("decrypting token should fail".into()),
                     Err(_) => Ok(()),
                 }
@@ -78,7 +83,11 @@ where
                 assert_eq!(token.unverified_footer(), footer.as_bytes());
 
                 let decrypted_token = token
-                    .decrypt_with_aad(&key, implicit_assertion.as_bytes())
+                    .decrypt_with_aad(
+                        &key,
+                        implicit_assertion.as_bytes(),
+                        &NoValidation::dangerous_no_validation(),
+                    )
                     .unwrap();
 
                 let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
@@ -108,7 +117,11 @@ where
                 };
                 assert_eq!(token.unverified_footer(), footer.as_bytes());
 
-                match token.verify_with_aad(&public_key, implicit_assertion.as_bytes()) {
+                match token.verify_with_aad(
+                    &public_key,
+                    implicit_assertion.as_bytes(),
+                    &NoValidation::dangerous_no_validation(),
+                ) {
                     Ok(_) => Err("verifying token should fail".into()),
                     Err(_) => Ok(()),
                 }
@@ -129,7 +142,11 @@ where
                 assert_eq!(token.unverified_footer(), footer.as_bytes());
 
                 let token = token
-                    .verify_with_aad(&public_key, implicit_assertion.as_bytes())
+                    .verify_with_aad(
+                        &public_key,
+                        implicit_assertion.as_bytes(),
+                        &NoValidation::dangerous_no_validation(),
+                    )
                     .unwrap();
 
                 let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
@@ -147,7 +164,11 @@ where
                 };
 
                 token
-                    .verify_with_aad(&public_key, implicit_assertion.as_bytes())
+                    .verify_with_aad(
+                        &public_key,
+                        implicit_assertion.as_bytes(),
+                        &NoValidation::dangerous_no_validation(),
+                    )
                     .unwrap();
 
                 Ok(())

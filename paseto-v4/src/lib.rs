@@ -3,7 +3,7 @@
 //! ```
 //! use paseto_v4::{SignedToken, VerifiedToken};
 //! use paseto_v4::key::{SecretKey, PublicKey, SealingKey};
-//! use paseto_json::RegisteredClaims;
+//! use paseto_json::{RegisteredClaims, Time, MustExpire, FromIssuer, ForSubject, Validate};
 //! use std::time::Duration;
 //!
 //! // create a new keypair
@@ -34,11 +34,12 @@
 //! // parse the key
 //! let public_key: PublicKey = key.parse().unwrap();
 //!
-//! // verify the token
-//! let verified_token = signed_token.verify(&public_key).unwrap();
-//!
-//! // verify the claims
-//! verified_token.claims.validate_time().unwrap();
+//! // verify the token signature and validate the claims.
+//! let validation = Time::now()
+//!     .then(MustExpire)
+//!     .then(FromIssuer("https://paseto.conrad.cafe/"))
+//!     .then(ForSubject("conradludgate"));
+//! let verified_token = signed_token.verify(&public_key, &validation).unwrap();
 //! ```
 
 pub use paseto_core::PasetoError;
@@ -115,7 +116,10 @@ pub mod key {
 
     impl Clone for SecretKey {
         fn clone(&self) -> Self {
-            let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(&self.0);
+            let esk = ed25519_dalek::hazmat::ExpandedSecretKey {
+                scalar: self.1.scalar,
+                hash_prefix: self.1.hash_prefix,
+            };
             Self(self.0, esk)
         }
     }
@@ -338,7 +342,7 @@ pub mod key {
             footer: &[u8],
             aad: &[u8],
         ) -> Result<Vec<u8>, PasetoError> {
-            let signature = preauth_secret(&self.0, encoding, &payload, footer, aad);
+            let signature = preauth_secret(&self.1, encoding, &payload, footer, aad);
             payload.extend_from_slice(&signature.to_bytes());
             Ok(payload)
         }
@@ -451,17 +455,16 @@ pub mod key {
     }
 
     fn preauth_secret(
-        secret_key: &ed25519_dalek::SecretKey,
+        esk: &ed25519_dalek::hazmat::ExpandedSecretKey,
         encoding: &'static str,
         cleartext: &[u8],
         footer: &[u8],
         aad: &[u8],
     ) -> Signature {
-        let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(secret_key);
-        let vk = ed25519_dalek::VerifyingKey::from(&esk);
+        let vk = ed25519_dalek::VerifyingKey::from(esk);
 
         ed25519_dalek::hazmat::raw_sign_byupdate::<sha2::Sha512, _>(
-            &esk,
+            esk,
             |ctx| {
                 pre_auth_encode(
                     [
