@@ -3,7 +3,6 @@ mod pke;
 mod public;
 
 use libsodium_rs::crypto_sign;
-use paseto_core::PasetoError;
 
 pub struct V4;
 
@@ -34,13 +33,5 @@ impl paseto_core::version::PaserkVersion for V4 {
         ctx.update(key_header.as_bytes());
         ctx.update(key_data);
         ctx.finalize().try_into().expect("hash should be 33 bytes")
-    }
-
-    fn seal_key(sealing_key: &PublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
-        pke::seal_key(sealing_key, key)
-    }
-
-    fn unseal_key(sealing_key: &SecretKey, key_data: Box<[u8]>) -> Result<LocalKey, PasetoError> {
-        pke::unseal_key(sealing_key, &key_data)
     }
 }

@@ -40,17 +40,6 @@ impl paseto_core::version::PaserkVersion for V3 {
 
         hash.as_ref()[..33].try_into().unwrap()
     }
-
-    fn seal_key(sealing_key: &PublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
-        pke::seal_key(sealing_key, key)
-    }
-
-    fn unseal_key(
-        sealing_key: &SecretKey,
-        mut key_data: Box<[u8]>,
-    ) -> Result<LocalKey, PasetoError> {
-        pke::unseal_key(sealing_key, &mut key_data)
-    }
 }
 
 struct Cipher(UnboundCipherKey, FixedLength<16>);

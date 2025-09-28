@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
 use paseto_core::key::{Key, SealedKey};
-use paseto_core::version::{Marker, PaserkVersion};
+use paseto_core::version::{Marker, PaserkVersion, PkeVersion};
 use paseto_core::{LocalKey, PublicKey, SecretKey};
 use paseto_test::{Bool, TestFile, read_test};
 use serde::Deserialize;
@@ -52,7 +52,7 @@ fn eq_keys<V: PaserkVersion, K: Marker>(k1: &Key<V, K>, k2: &Key<V, K>) -> bool 
     k1.expose_key() == k2.expose_key()
 }
 
-impl<V: PaserkVersion + 'static> SealTest<V>
+impl<V: PkeVersion + 'static> SealTest<V>
 where
     V::LocalKey: Send,
     V::PublicKey: Send,
@@ -80,7 +80,7 @@ where
 
                 assert!(eq_keys(&key, &unsealed));
 
-                let sealed = sealing_public_key.seal(unsealed)?;
+                let sealed = unsealed.seal(&sealing_public_key)?;
 
                 let key2 = sealing_secret_key.unseal(sealed)?;
                 assert!(eq_keys(&key, &key2));

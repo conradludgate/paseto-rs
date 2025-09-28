@@ -3,7 +3,6 @@ mod pke;
 mod public;
 
 use p384::ecdsa::{SigningKey, VerifyingKey};
-use paseto_core::PasetoError;
 
 pub struct V3;
 
@@ -37,16 +36,5 @@ impl paseto_core::version::PaserkVersion for V3 {
         assert_eq!(hash.len(), 48);
 
         hash[..33].try_into().unwrap()
-    }
-
-    fn seal_key(sealing_key: &PublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
-        pke::seal_key(sealing_key, key)
-    }
-
-    fn unseal_key(
-        sealing_key: &SecretKey,
-        mut key_data: Box<[u8]>,
-    ) -> Result<LocalKey, PasetoError> {
-        pke::unseal_key(sealing_key, &mut key_data)
     }
 }

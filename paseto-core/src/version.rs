@@ -24,7 +24,37 @@ pub trait PaserkVersion: Version {
 
     /// How to hash some keydata for creating [`KeyId`](crate::key::KeyId)
     fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33];
+}
 
+pub trait PieWrapVersion: PaserkVersion {
+    fn pie_wrap_key(
+        header: &'static str,
+        wrapping_key: &Self::LocalKey,
+        key_data: Vec<u8>,
+    ) -> Result<Vec<u8>, PasetoError>;
+
+    fn pie_unwrap_key(
+        header: &'static str,
+        wrapping_key: &Self::LocalKey,
+        key_data: Vec<u8>,
+    ) -> Result<Vec<u8>, PasetoError>;
+}
+
+pub trait PwWrapVersion: PaserkVersion {
+    fn pw_wrap_key(
+        header: &'static str,
+        pass: &[u8],
+        key_data: Vec<u8>,
+    ) -> Result<Vec<u8>, PasetoError>;
+
+    fn pw_unwrap_key(
+        header: &'static str,
+        pass: &[u8],
+        key_data: Vec<u8>,
+    ) -> Result<Vec<u8>, PasetoError>;
+}
+
+pub trait PkeVersion: PaserkVersion {
     fn seal_key(
         sealing_key: &Self::PublicKey,
         key: Self::LocalKey,
@@ -62,6 +92,10 @@ pub trait Marker: Sealed + Sized + 'static {
 
 pub trait SealingMarker: Marker {
     type Purpose: Purpose;
+
+    const PIE_WRAP_HEADER: &'static str;
+    const PW_WRAP_HEADER: &'static str;
+
     type SealingKey<V: Version>: KeyKind<Version = V, KeyType = Self>
         + SealingKey<Self::Purpose, Version = V, KeyType = Self>;
 
@@ -85,6 +119,9 @@ impl Marker for Secret {
 
 impl SealingMarker for Secret {
     type Purpose = Public;
+
+    const PIE_WRAP_HEADER: &'static str = ".secret-wrap.pie.";
+    const PW_WRAP_HEADER: &'static str = ".secret-pw.";
 
     type SealingKey<V: Version> = V::SecretKey;
 
@@ -119,6 +156,9 @@ impl Marker for Local {
 
 impl SealingMarker for Local {
     type Purpose = Local;
+
+    const PIE_WRAP_HEADER: &'static str = ".local-wrap.pie.";
+    const PW_WRAP_HEADER: &'static str = ".local-pw.";
 
     type SealingKey<V: Version> = V::LocalKey;
 

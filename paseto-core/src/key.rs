@@ -4,7 +4,10 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 
 use crate::PasetoError;
-use crate::version::{Local, Marker, PaserkVersion, Public, Purpose, Secret, Version};
+use crate::version::{
+    Local, Marker, PaserkVersion, PieWrapVersion, PkeVersion, Public, Purpose, PwWrapVersion,
+    SealingMarker, Secret, Version,
+};
 
 /// Defines a PASERK key type
 pub trait KeyKind: Sized {
@@ -270,14 +273,14 @@ impl<V: PaserkVersion, K: Marker> std::str::FromStr for KeyText<V, K> {
 
 /// An asymmetrically encrypted [`LocalKey`].
 ///
-/// * Encrypted using [`PublicKey::seal`]
+/// * Encrypted using [`LocalKey::seal`]
 /// * Decrypted using [`SecretKey::unseal`]
-pub struct SealedKey<V: PaserkVersion> {
+pub struct SealedKey<V: PkeVersion> {
     key_data: Box<[u8]>,
     _version: PhantomData<V>,
 }
 
-impl<V: PaserkVersion> Clone for SealedKey<V> {
+impl<V: PkeVersion> Clone for SealedKey<V> {
     fn clone(&self) -> Self {
         Self {
             key_data: self.key_data.clone(),
@@ -286,7 +289,7 @@ impl<V: PaserkVersion> Clone for SealedKey<V> {
     }
 }
 
-impl<V: PaserkVersion> fmt::Display for SealedKey<V> {
+impl<V: PkeVersion> fmt::Display for SealedKey<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(V::PASERK_HEADER)?;
         f.write_str(".seal.")?;
@@ -294,7 +297,7 @@ impl<V: PaserkVersion> fmt::Display for SealedKey<V> {
     }
 }
 
-impl<V: PaserkVersion> std::str::FromStr for SealedKey<V> {
+impl<V: PkeVersion> std::str::FromStr for SealedKey<V> {
     type Err = PasetoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -310,17 +313,70 @@ impl<V: PaserkVersion> std::str::FromStr for SealedKey<V> {
     }
 }
 
-impl<V: PaserkVersion> PublicKey<V> {
-    pub fn seal(&self, key: LocalKey<V>) -> Result<SealedKey<V>, PasetoError> {
-        V::seal_key(&self.0, key.0).map(|key_data| SealedKey {
+impl<V: PkeVersion> LocalKey<V> {
+    pub fn seal(self, with: &PublicKey<V>) -> Result<SealedKey<V>, PasetoError> {
+        V::seal_key(&with.0, self.0).map(|key_data| SealedKey {
             key_data,
             _version: PhantomData,
         })
     }
 }
 
-impl<V: PaserkVersion> SecretKey<V> {
+impl<V: PkeVersion> SecretKey<V> {
     pub fn unseal(&self, key: SealedKey<V>) -> Result<LocalKey<V>, PasetoError> {
         V::unseal_key(&self.0, key.key_data).map(Key)
+    }
+}
+
+/// An symmetrically encrypted [`Key`].
+pub struct PieWrappedKey<V: PieWrapVersion, K: SealingMarker> {
+    key_data: Box<[u8]>,
+    _version: PhantomData<(V, K)>,
+}
+
+impl<V: PieWrapVersion, K: SealingMarker> Key<V, K> {
+    pub fn wrap_pie(self, with: &LocalKey<V>) -> Result<PieWrappedKey<V, K>, PasetoError> {
+        V::pie_wrap_key(K::PIE_WRAP_HEADER, &with.0, self.0.encode().into_vec()).map(|key_data| {
+            PieWrappedKey {
+                key_data: key_data.into_boxed_slice(),
+                _version: PhantomData,
+            }
+        })
+    }
+}
+
+impl<V: PieWrapVersion> LocalKey<V> {
+    pub fn unwrap_pie<K: SealingMarker>(
+        &self,
+        key: PieWrappedKey<V, K>,
+    ) -> Result<Key<V, K>, PasetoError> {
+        V::pie_unwrap_key(K::PIE_WRAP_HEADER, &self.0, key.key_data.into_vec())
+            .and_then(|key_data| KeyKind::decode(&key_data))
+            .map(Key)
+    }
+}
+
+/// An password encrypted [`Key`].
+pub struct PasswordWrappedKey<V: PwWrapVersion, K: SealingMarker> {
+    key_data: Box<[u8]>,
+    _version: PhantomData<(V, K)>,
+}
+
+impl<V: PwWrapVersion, K: SealingMarker> Key<V, K> {
+    pub fn password_wrap(self, pass: &[u8]) -> Result<PasswordWrappedKey<V, K>, PasetoError> {
+        V::pw_wrap_key(K::PW_WRAP_HEADER, pass, self.0.encode().into_vec()).map(|key_data| {
+            PasswordWrappedKey {
+                key_data: key_data.into_boxed_slice(),
+                _version: PhantomData,
+            }
+        })
+    }
+}
+
+impl<V: PwWrapVersion, K: SealingMarker> PasswordWrappedKey<V, K> {
+    pub fn unwrap(self, pass: &[u8]) -> Result<Key<V, K>, PasetoError> {
+        V::pw_unwrap_key(K::PW_WRAP_HEADER, pass, self.key_data.into_vec())
+            .and_then(|key_data| KeyKind::decode(&key_data))
+            .map(Key)
     }
 }

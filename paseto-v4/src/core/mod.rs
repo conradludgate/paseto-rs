@@ -4,7 +4,6 @@ mod public;
 
 use generic_array::GenericArray;
 use generic_array::typenum::U32;
-use paseto_core::PasetoError;
 
 pub struct V4;
 
@@ -39,17 +38,6 @@ impl paseto_core::version::PaserkVersion for V4 {
         ctx.update(key_header.as_bytes());
         ctx.update(key_data);
         ctx.finalize_fixed().into()
-    }
-
-    fn seal_key(sealing_key: &PublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
-        pke::seal_key(sealing_key, key)
-    }
-
-    fn unseal_key(
-        sealing_key: &SecretKey,
-        mut key_data: Box<[u8]>,
-    ) -> Result<LocalKey, PasetoError> {
-        pke::unseal_key(sealing_key, &mut key_data)
     }
 }
 
