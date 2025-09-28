@@ -36,25 +36,30 @@ pub trait PieWrapVersion: PaserkVersion {
         key_data: Vec<u8>,
     ) -> Result<Vec<u8>, PasetoError>;
 
-    fn pie_unwrap_key(
+    fn pie_unwrap_key<'key>(
         header: &'static str,
         wrapping_key: &Self::LocalKey,
-        key_data: Vec<u8>,
-    ) -> Result<Vec<u8>, PasetoError>;
+        key_data: &'key mut [u8],
+    ) -> Result<&'key [u8], PasetoError>;
 }
 
 pub trait PwWrapVersion: PaserkVersion {
+    type Params: Default;
+
     fn pw_wrap_key(
         header: &'static str,
         pass: &[u8],
+        params: &Self::Params,
         key_data: Vec<u8>,
     ) -> Result<Vec<u8>, PasetoError>;
 
-    fn pw_unwrap_key(
+    fn get_params(key_data: &[u8]) -> Result<Self::Params, PasetoError>;
+
+    fn pw_unwrap_key<'key>(
         header: &'static str,
         pass: &[u8],
-        key_data: Vec<u8>,
-    ) -> Result<Vec<u8>, PasetoError>;
+        key_data: &'key mut [u8],
+    ) -> Result<&'key [u8], PasetoError>;
 }
 
 pub trait PkeVersion: PaserkVersion {

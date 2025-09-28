@@ -50,11 +50,11 @@ impl PieWrapVersion for V4 {
         Ok(out)
     }
 
-    fn pie_unwrap_key(
+    fn pie_unwrap_key<'key>(
         header: &'static str,
         wrapping_key: &Self::LocalKey,
-        mut key_data: Vec<u8>,
-    ) -> Result<Vec<u8>, PasetoError> {
+        key_data: &'key mut [u8],
+    ) -> Result<&'key [u8], PasetoError> {
         let (tag, ciphertext) = key_data
             .split_first_chunk_mut::<32>()
             .ok_or(PasetoError::InvalidKey)?;
@@ -70,7 +70,10 @@ impl PieWrapVersion for V4 {
             return Err(PasetoError::CryptoError);
         }
 
-        xchacha20::stream_xor(ciphertext, &n2, &ek).map_err(|_| PasetoError::CryptoError)
+        let plaintext =
+            xchacha20::stream_xor(ciphertext, &n2, &ek).map_err(|_| PasetoError::CryptoError)?;
+        ciphertext.copy_from_slice(&plaintext);
+        Ok(ciphertext)
     }
 }
 

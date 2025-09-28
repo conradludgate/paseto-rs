@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::key::{Key, SealedKey};
-use paseto_core::version::{Marker, PaserkVersion, PkeVersion};
+use paseto_core::key::SealedKey;
+use paseto_core::version::{PaserkVersion, PkeVersion};
 use paseto_core::{LocalKey, PublicKey, SecretKey};
-use paseto_test::{Bool, TestFile, read_test};
+use paseto_test::{Bool, TestFile, eq_keys, read_test};
 use serde::Deserialize;
 
 fn main() {
@@ -46,10 +46,6 @@ enum SealTest<V: PaserkVersion> {
         unsealed: (),
         paserk: String,
     },
-}
-
-fn eq_keys<V: PaserkVersion, K: Marker>(k1: &Key<V, K>, k2: &Key<V, K>) -> bool {
-    k1.expose_key() == k2.expose_key()
 }
 
 impl<V: PkeVersion + 'static> SealTest<V>

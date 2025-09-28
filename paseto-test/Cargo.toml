@@ -36,3 +36,7 @@ harness = false
 [[test]]
 name = "key_wrap"
 harness = false
+
+[[test]]
+name = "key_pbkw"
+harness = false

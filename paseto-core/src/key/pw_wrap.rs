@@ -14,19 +14,31 @@ pub struct PasswordWrappedKey<V: PwWrapVersion, K: SealingMarker> {
 
 impl<V: PwWrapVersion, K: SealingMarker> Key<V, K> {
     pub fn password_wrap(self, pass: &[u8]) -> Result<PasswordWrappedKey<V, K>, PasetoError> {
-        V::pw_wrap_key(K::PW_WRAP_HEADER, pass, self.0.encode().into_vec()).map(|key_data| {
-            PasswordWrappedKey {
+        self.password_wrap_with_params(pass, &V::Params::default())
+    }
+
+    pub fn password_wrap_with_params(
+        self,
+        pass: &[u8],
+        params: &V::Params,
+    ) -> Result<PasswordWrappedKey<V, K>, PasetoError> {
+        V::pw_wrap_key(K::PW_WRAP_HEADER, pass, params, self.0.encode().into_vec()).map(
+            |key_data| PasswordWrappedKey {
                 key_data: key_data.into_boxed_slice(),
                 _version: PhantomData,
-            }
-        })
+            },
+        )
     }
 }
 
 impl<V: PwWrapVersion, K: SealingMarker> PasswordWrappedKey<V, K> {
-    pub fn unwrap(self, pass: &[u8]) -> Result<Key<V, K>, PasetoError> {
-        V::pw_unwrap_key(K::PW_WRAP_HEADER, pass, self.key_data.into_vec())
-            .and_then(|key_data| KeyKind::decode(&key_data))
+    pub fn params(&self) -> Result<V::Params, PasetoError> {
+        V::get_params(&self.key_data)
+    }
+
+    pub fn unwrap(mut self, pass: &[u8]) -> Result<Key<V, K>, PasetoError> {
+        V::pw_unwrap_key(K::PW_WRAP_HEADER, pass, &mut self.key_data)
+            .and_then(KeyKind::decode)
             .map(Key)
     }
 }

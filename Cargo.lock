@@ -112,6 +112,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "argon2"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c3610892ee6e0cbce8ae2700349fcf8f98adb0dbfbee85aec3c9179d29cc072"
+dependencies = [
+ "base64ct",
+ "blake2",
+ "cpufeatures",
+ "password-hash",
+]
+
+[[package]]
 name = "aws-lc-fips-sys"
 version = "0.13.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -161,6 +173,12 @@ name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
+name = "base64ct"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55248b47b0caf0546f7988906588779981c43bb1bc9d0c44087278f80cdb44ba"
 
 [[package]]
 name = "bindgen"
@@ -1139,6 +1157,7 @@ dependencies = [
 name = "paseto-v4"
 version = "0.1.0-rc.4"
 dependencies = [
+ "argon2",
  "blake2",
  "chacha20",
  "cipher",
@@ -1151,6 +1170,7 @@ dependencies = [
  "paseto-core",
  "paseto-json",
  "sha2",
+ "zerocopy",
 ]
 
 [[package]]
@@ -1161,6 +1181,17 @@ dependencies = [
  "libsodium-rs",
  "paseto-core",
  "paseto-json",
+]
+
+[[package]]
+name = "password-hash"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "346f04948ba92c43e8469c1ee6736c7563d71012b17d40745260fe106aac2166"
+dependencies = [
+ "base64ct",
+ "rand_core",
+ "subtle",
 ]
 
 [[package]]

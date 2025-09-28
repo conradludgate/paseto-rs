@@ -2,6 +2,7 @@ mod local;
 mod pie_wrap;
 mod pke;
 mod public;
+mod pw_wrap;
 
 use generic_array::typenum::{IsLessOrEqual, LeEq, NonZero, U32, U64};
 use generic_array::{ArrayLength, GenericArray};

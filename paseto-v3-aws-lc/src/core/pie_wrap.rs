@@ -48,11 +48,11 @@ impl PieWrapVersion for V3 {
         Ok(out)
     }
 
-    fn pie_unwrap_key(
+    fn pie_unwrap_key<'key>(
         header: &'static str,
         wrapping_key: &Self::LocalKey,
-        mut key_data: Vec<u8>,
-    ) -> Result<Vec<u8>, PasetoError> {
+        key_data: &'key mut [u8],
+    ) -> Result<&'key [u8], PasetoError> {
         let (tag, ciphertext) = key_data
             .split_first_chunk_mut::<48>()
             .ok_or(PasetoError::InvalidKey)?;
@@ -66,9 +66,8 @@ impl PieWrapVersion for V3 {
             .map_err(|_| PasetoError::CryptoError)?;
 
         cipher.apply_keystream(ciphertext)?;
-        key_data.drain(0..80);
 
-        Ok(key_data)
+        Ok(ciphertext)
     }
 }
 

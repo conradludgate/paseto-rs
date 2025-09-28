@@ -23,13 +23,10 @@ impl<V: PieWrapVersion, K: SealingMarker> Key<V, K> {
     }
 }
 
-impl<V: PieWrapVersion> LocalKey<V> {
-    pub fn unwrap_pie<K: SealingMarker>(
-        &self,
-        key: PieWrappedKey<V, K>,
-    ) -> Result<Key<V, K>, PasetoError> {
-        V::pie_unwrap_key(K::PIE_WRAP_HEADER, &self.0, key.key_data.into_vec())
-            .and_then(|key_data| KeyKind::decode(&key_data))
+impl<V: PieWrapVersion, K: SealingMarker> PieWrappedKey<V, K> {
+    pub fn unwrap(mut self, with: &LocalKey<V>) -> Result<Key<V, K>, PasetoError> {
+        V::pie_unwrap_key(K::PIE_WRAP_HEADER, &with.0, &mut self.key_data)
+            .and_then(KeyKind::decode)
             .map(Key)
     }
 }
