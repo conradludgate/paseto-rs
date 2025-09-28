@@ -76,13 +76,13 @@ where
                 ..
             } => {
                 let sealed: SealedKey<V> = paserk.parse()?;
-                let key = sealing_secret_key.unseal(sealed)?;
+                let key = sealed.unseal(&sealing_secret_key)?;
 
                 assert!(eq_keys(&key, &unsealed));
 
                 let sealed = unsealed.seal(&sealing_public_key)?;
 
-                let key2 = sealing_secret_key.unseal(sealed)?;
+                let key2 = sealed.unseal(&sealing_secret_key)?;
                 assert!(eq_keys(&key, &key2));
 
                 Ok(())
@@ -98,7 +98,7 @@ where
                     Err(_) => return Ok(()),
                 };
 
-                match sealing_secret_key.unseal(key) {
+                match key.unseal(&sealing_secret_key) {
                     Ok(_) => Err(comment.into()),
                     Err(_) => Ok(()),
                 }

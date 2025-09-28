@@ -1,3 +1,6 @@
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+
 use crate::PasetoError;
 use crate::key::{KeyKind, SealingKey, UnsealingKey};
 use crate::sealed::Sealed;
@@ -183,25 +186,14 @@ pub trait Purpose: Marker {
     type SealingMarker: SealingMarker<Purpose = Self>;
     /// The key used to validate/decrypt tokens.
     type UnsealingMarker: UnsealingMarker<Purpose = Self>;
-
-    // /// The key used to sign/encrypt tokens.
-    // type SealingKey<V: Version>: SealingKey<Self, KeyType = Self::SealingMarker>;
-    // /// The key used to validate/decrypt tokens.
-    // type UnsealingKey<V: Version>: UnsealingKey<Self, KeyType = Self::UnsealingMarker>;
 }
 
 impl Purpose for Public {
     type SealingMarker = Secret;
     type UnsealingMarker = Public;
-
-    // type SealingKey<V: Version> = V::SecretKey;
-    // type UnsealingKey<V: Version> = V::PublicKey;
 }
 
 impl Purpose for Local {
     type SealingMarker = Local;
     type UnsealingMarker = Local;
-
-    // type SealingKey<V: Version> = V::LocalKey;
-    // type UnsealingKey<V: Version> = V::LocalKey;
 }

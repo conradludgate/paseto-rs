@@ -1,3 +1,6 @@
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+
 use cipher::{ArrayLength, StreamCipher};
 use generic_array::GenericArray;
 use generic_array::sequence::Split;

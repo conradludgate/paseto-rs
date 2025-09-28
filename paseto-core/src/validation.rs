@@ -1,6 +1,8 @@
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::sync::Arc;
+use alloc::boxed::Box;
+use alloc::rc::Rc;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 use crate::PasetoError;
 

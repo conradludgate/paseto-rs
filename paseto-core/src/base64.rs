@@ -2,6 +2,7 @@
 // Licensed from the RustCrypto developers under Apache-2.0.
 // <https://github.com/RustCrypto/formats/blob/master/base64ct/LICENSE-APACHE>
 
+use alloc::vec::Vec;
 use core::fmt;
 
 use crate::PasetoError;

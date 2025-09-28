@@ -2,21 +2,7 @@
 //!
 //! This is a low level detail used to build PASETO version implementations.
 
-pub trait WriteBytes {
-    fn write(&mut self, slice: &[u8]);
-}
-
-impl<W: WriteBytes> WriteBytes for &mut W {
-    fn write(&mut self, slice: &[u8]) {
-        W::write(self, slice);
-    }
-}
-
-impl WriteBytes for Vec<u8> {
-    fn write(&mut self, slice: &[u8]) {
-        self.extend_from_slice(slice)
-    }
-}
+pub use crate::encodings::WriteBytes;
 
 pub fn pre_auth_encode<const N: usize>(pieces: [&[&[u8]]; N], mut out: impl WriteBytes) {
     let len = N as u64;
@@ -32,6 +18,8 @@ pub fn pre_auth_encode<const N: usize>(pieces: [&[&[u8]]; N], mut out: impl Writ
 
 #[cfg(test)]
 mod tests {
+    use std::vec::Vec;
+
     fn pae_vec<const N: usize>(pieces: [&[&[u8]]; N]) -> Vec<u8> {
         let mut vec = Vec::new();
         super::pre_auth_encode(pieces, &mut vec);

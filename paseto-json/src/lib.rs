@@ -1,9 +1,11 @@
 use core::fmt;
+use std::error::Error;
+use std::io;
 use std::time::Duration;
 
 pub use jiff;
 use paseto_core::PasetoError;
-use paseto_core::encodings::{Footer, Payload};
+use paseto_core::encodings::{Footer, Payload, WriteBytes};
 pub use paseto_core::validation::Validate;
 use serde_core::de::{DeserializeOwned, MapAccess, Visitor};
 use serde_core::ser::SerializeStruct;
@@ -23,9 +25,21 @@ use serde_core::{Deserialize, Deserializer, Serialize, Serializer};
 #[derive(Default)]
 pub struct Json<T>(pub T);
 
+struct Writer<W: WriteBytes>(W);
+impl<W: WriteBytes> io::Write for Writer<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 impl<T: Serialize + DeserializeOwned> Footer for Json<T> {
-    fn encode(&self, writer: impl std::io::Write) -> Result<(), std::io::Error> {
-        serde_json::to_writer(writer, &self.0).map_err(std::io::Error::from)
+    fn encode(&self, writer: impl WriteBytes) -> Result<(), Box<dyn Error + Send + Sync>> {
+        serde_json::to_writer(Writer(writer), &self.0).map_err(|err| Box::new(err) as _)
     }
 
     fn decode(footer: &[u8]) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
@@ -40,8 +54,8 @@ impl<M: Serialize + DeserializeOwned> Payload for Json<M> {
     /// JSON is the standard payload and requires no version suffix
     const SUFFIX: &'static str = "";
 
-    fn encode(self, writer: impl std::io::Write) -> Result<(), std::io::Error> {
-        serde_json::to_writer(writer, &self.0).map_err(std::io::Error::from)
+    fn encode(self, writer: impl WriteBytes) -> Result<(), Box<dyn Error + Send + Sync>> {
+        serde_json::to_writer(Writer(writer), &self.0).map_err(|err| Box::new(err) as _)
     }
 
     fn decode(payload: &[u8]) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
@@ -55,8 +69,8 @@ impl Payload for RegisteredClaims {
     /// JSON is the standard payload and requires no version suffix
     const SUFFIX: &'static str = "";
 
-    fn encode(self, writer: impl std::io::Write) -> Result<(), std::io::Error> {
-        serde_json::to_writer(writer, &self).map_err(std::io::Error::from)
+    fn encode(self, writer: impl WriteBytes) -> Result<(), Box<dyn Error + Send + Sync>> {
+        serde_json::to_writer(Writer(writer), &self).map_err(|err| Box::new(err) as _)
     }
 
     fn decode(payload: &[u8]) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {

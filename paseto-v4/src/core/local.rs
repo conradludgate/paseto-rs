@@ -1,3 +1,6 @@
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+
 use blake2::Blake2bMac;
 use chacha20::XChaCha20;
 use cipher::StreamCipher;

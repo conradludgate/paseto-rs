@@ -41,6 +41,10 @@
 //! let verified_token = signed_token.verify(&public_key, &validation).unwrap();
 //! ```
 
+#![no_std]
+
+extern crate alloc;
+
 /// Low level implementation primitives.
 pub mod core;
 

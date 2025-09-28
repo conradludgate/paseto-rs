@@ -1,3 +1,6 @@
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+
 use cipher::StreamCipher;
 use curve25519_dalek::EdwardsPoint;
 use digest::Mac;

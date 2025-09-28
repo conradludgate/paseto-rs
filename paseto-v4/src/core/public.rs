@@ -1,3 +1,6 @@
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+
 use ed25519_dalek::Signature;
 use paseto_core::PasetoError;
 use paseto_core::key::{KeyKind, SealingKey, UnsealingKey};

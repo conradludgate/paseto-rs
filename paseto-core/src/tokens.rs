@@ -1,6 +1,8 @@
 //! Generic Tokens
 
-use std::marker::PhantomData;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 use crate::encodings::{Footer, Payload};
 use crate::key::{Key, SealingKey, UnsealingKey};
@@ -106,9 +108,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> SealedToke
             aad,
         )?;
 
-        let message = M::decode(cleartext)
-            .map_err(std::io::Error::other)
-            .map_err(PasetoError::PayloadError)?;
+        let message = M::decode(cleartext).map_err(PasetoError::PayloadError)?;
 
         v.validate(&message)?;
 

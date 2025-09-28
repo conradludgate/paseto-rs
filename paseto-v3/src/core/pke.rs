@@ -1,3 +1,6 @@
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+
 use cipher::StreamCipher;
 use generic_array::sequence::Split;
 use hmac::Mac;

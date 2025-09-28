@@ -1,3 +1,6 @@
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+
 use generic_array::GenericArray;
 use p384::ecdsa::signature::{DigestSigner, DigestVerifier};
 use p384::ecdsa::{Signature, SigningKey, VerifyingKey};

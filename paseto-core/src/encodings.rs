@@ -1,11 +1,30 @@
 //! PASETO Message encodings.
 
+use alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use core::error::Error;
 use core::fmt;
-use std::io::{self, Write};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::tokens::SealedToken;
 use crate::{PasetoError, version};
+
+pub trait WriteBytes {
+    fn write(&mut self, slice: &[u8]);
+}
+
+impl<W: WriteBytes> WriteBytes for &mut W {
+    fn write(&mut self, slice: &[u8]) {
+        W::write(self, slice);
+    }
+}
+
+impl WriteBytes for Vec<u8> {
+    fn write(&mut self, slice: &[u8]) {
+        self.extend_from_slice(slice)
+    }
+}
 
 /// A PASETO payload object.
 pub trait Payload: Sized {
@@ -15,10 +34,10 @@ pub trait Payload: Sized {
     const SUFFIX: &'static str;
 
     /// Encode the message
-    fn encode(self, writer: impl Write) -> Result<(), io::Error>;
+    fn encode(self, writer: impl WriteBytes) -> Result<(), Box<dyn Error + Send + Sync>>;
 
     /// Decode the message
-    fn decode(payload: &[u8]) -> Result<Self, Box<dyn std::error::Error + Send + Sync>>;
+    fn decode(payload: &[u8]) -> Result<Self, Box<dyn Error + Send + Sync>>;
 }
 
 /// Encoding scheme for PASETO footers.
@@ -28,28 +47,29 @@ pub trait Payload: Sized {
 /// Footers are also optional, so the `()` empty type is considered as a missing footer.
 pub trait Footer: Sized {
     /// Encode the footer to bytes
-    fn encode(&self, writer: impl Write) -> Result<(), io::Error>;
+    fn encode(&self, writer: impl WriteBytes) -> Result<(), Box<dyn Error + Send + Sync>>;
 
     /// Decode the footer from bytes
-    fn decode(footer: &[u8]) -> Result<Self, Box<dyn std::error::Error + Send + Sync>>;
+    fn decode(footer: &[u8]) -> Result<Self, Box<dyn Error + Send + Sync>>;
 }
 
 impl Footer for Vec<u8> {
-    fn encode(&self, mut writer: impl Write) -> Result<(), io::Error> {
-        writer.write_all(self)
+    fn encode(&self, mut writer: impl WriteBytes) -> Result<(), Box<dyn Error + Send + Sync>> {
+        writer.write(self);
+        Ok(())
     }
 
-    fn decode(footer: &[u8]) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    fn decode(footer: &[u8]) -> Result<Self, Box<dyn Error + Send + Sync>> {
         Ok(footer.to_owned())
     }
 }
 
 impl Footer for () {
-    fn encode(&self, _: impl Write) -> Result<(), io::Error> {
+    fn encode(&self, _: impl WriteBytes) -> Result<(), Box<dyn Error + Send + Sync>> {
         Ok(())
     }
 
-    fn decode(footer: &[u8]) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    fn decode(footer: &[u8]) -> Result<Self, Box<dyn Error + Send + Sync>> {
         match footer {
             [] => Ok(()),
             x => Err(format!("unexpected footer {x:?}").into()),
@@ -75,7 +95,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F> fmt::Display
     }
 }
 
-impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> std::str::FromStr
+impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> core::str::FromStr
     for SealedToken<V, P, M, F>
 {
     type Err = PasetoError;
@@ -96,9 +116,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> std::str::
             .transpose()?
             .unwrap_or_default()
             .into_boxed_slice();
-        let footer = F::decode(&encoded_footer)
-            .map_err(std::io::Error::other)
-            .map_err(PasetoError::PayloadError)?;
+        let footer = F::decode(&encoded_footer).map_err(PasetoError::PayloadError)?;
 
         Ok(Self {
             payload,
@@ -111,42 +129,75 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> std::str::
     }
 }
 
-#[cfg(feature = "serde")]
-impl<V: version::Version, P: version::Purpose, M: Payload, F> serde_core::Serialize
-    for SealedToken<V, P, M, F>
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde_core::Serializer,
-    {
-        serializer.collect_str(self)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de, V: version::Version, P: version::Purpose, M: Payload, F: Footer>
-    serde_core::Deserialize<'de> for SealedToken<V, P, M, F>
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde_core::Deserializer<'de>,
-    {
-        struct FromStrVisitor<V, T, F, E>(std::marker::PhantomData<(V, T, F, E)>);
-        impl<'de, V: version::Version, P: version::Purpose, M: Payload, F: Footer>
-            serde_core::de::Visitor<'de> for FromStrVisitor<V, P, M, F>
+macro_rules! serde_str {
+    (
+        impl<$($ident:ident),*> $ty:ty
+        $(where
+            $($path:path: $bound:path,)*
+        )?
         {
-            type Value = SealedToken<V, P, M, F>;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "a \"{}{}\" paseto", V::HEADER, P::HEADER,)
-            }
-            fn visit_str<Err>(self, v: &str) -> Result<Self::Value, Err>
+            fn expecting() { $expecting:expr }
+        }
+    ) => {
+        #[cfg(feature = "serde")]
+        impl<$($ident),*> serde_core::Serialize for $ty
+        $(where
+            $($path: $bound,)*
+        )?
+        {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
-                Err: serde_core::de::Error,
+                S: serde_core::Serializer,
             {
-                v.parse().map_err(Err::custom)
+                serializer.collect_str(self)
             }
         }
-        deserializer.deserialize_str(FromStrVisitor(std::marker::PhantomData))
-    }
+
+        #[cfg(feature = "serde")]
+        impl<'de, $($ident),*> serde_core::Deserialize<'de> for $ty
+        $(where
+            $($path: $bound,)*
+        )?
+        {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde_core::Deserializer<'de>,
+            {
+                struct Visitor<$($ident),*>(core::marker::PhantomData<($($ident,)*)>);
+                impl<'de, $($ident),*> serde_core::de::Visitor<'de> for Visitor<$($ident),*>
+                $(where
+                    $($path: $bound,)*
+                )?
+                {
+                    type Value = $ty;
+
+                    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                        formatter.write_fmt($expecting)
+                    }
+
+                    fn visit_str<Err>(self, v: &str) -> Result<Self::Value, Err>
+                    where
+                        Err: serde_core::de::Error,
+                    {
+                        v.parse().map_err(Err::custom)
+                    }
+                }
+                deserializer.deserialize_str(Visitor(core::marker::PhantomData))
+            }
+        }
+    };
 }
+
+serde_str!(
+    impl<V, P, M, F> SealedToken<V, P, M, F>
+    where
+        V: version::Version,
+        P: version::Purpose,
+        M: Payload,
+        F: Footer,
+    {
+        fn expecting() {
+            format_args!("a \"{}{}\" paseto", V::HEADER, P::HEADER)
+        }
+    }
+);

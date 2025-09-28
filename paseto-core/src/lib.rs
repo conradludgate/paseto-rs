@@ -1,11 +1,22 @@
+#![no_std]
+
+#[macro_use]
+extern crate alloc;
+
+#[cfg(test)]
+extern crate std;
+
 mod base64;
+#[macro_use]
 pub mod encodings;
 pub mod key;
-pub mod keyset;
 pub mod pae;
 pub mod tokens;
 pub mod validation;
 pub mod version;
+
+use alloc::boxed::Box;
+use core::error::Error;
 
 pub use key::{LocalKey, PublicKey, SecretKey};
 pub use tokens::{DecryptedToken, EncryptedToken, SignedToken, VerifiedToken};
@@ -29,20 +40,20 @@ pub enum PasetoError {
     /// PASETO claims failed validation.
     ClaimsError,
     /// There was an error with payload processing
-    PayloadError(std::io::Error),
+    PayloadError(Box<dyn Error + Send + Sync>),
 }
 
-impl std::error::Error for PasetoError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl Error for PasetoError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            PasetoError::PayloadError(x) => Some(x),
+            PasetoError::PayloadError(x) => Some(&**x),
             _ => None,
         }
     }
 }
 
-impl std::fmt::Display for PasetoError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for PasetoError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             PasetoError::Base64DecodeError => f.write_str("The token could not be base64 decoded"),
             PasetoError::InvalidKey => f.write_str("Could not parse the key"),
