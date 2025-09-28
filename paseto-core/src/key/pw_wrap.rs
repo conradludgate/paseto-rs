@@ -7,6 +7,9 @@ use crate::key::{Key, KeyKind};
 use crate::version::{PwWrapVersion, SealingMarker};
 
 /// An password encrypted [`Key`].
+///
+/// * Encrypted using [`Key::password_wrap`]
+/// * Decrypted using [`PasswordWrappedKey::unwrap`]
 pub struct PasswordWrappedKey<V: PwWrapVersion, K: SealingMarker> {
     key_data: Box<[u8]>,
     _version: PhantomData<(V, K)>,

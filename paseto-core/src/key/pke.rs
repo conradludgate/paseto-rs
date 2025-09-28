@@ -9,7 +9,7 @@ use crate::{LocalKey, PasetoError, PublicKey, SecretKey};
 /// An asymmetrically encrypted [`LocalKey`].
 ///
 /// * Encrypted using [`LocalKey::seal`]
-/// * Decrypted using [`SecretKey::unseal`]
+/// * Decrypted using [`SealedKey::unseal`]
 pub struct SealedKey<V: PkeVersion> {
     key_data: Box<[u8]>,
     _version: PhantomData<V>,

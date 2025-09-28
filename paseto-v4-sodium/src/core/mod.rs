@@ -2,6 +2,7 @@ mod local;
 mod pie_wrap;
 mod pke;
 mod public;
+mod pw_wrap;
 
 use libsodium_rs::{crypto_generichash, crypto_sign};
 

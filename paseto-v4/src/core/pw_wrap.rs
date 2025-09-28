@@ -12,29 +12,39 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned, big_endi
 
 use super::V4;
 
-fn wrap_keys(
-    pass: &[u8],
-    params: &Params,
-    salt: &[u8; 16],
-    nonce: &[u8; 24],
-) -> Result<(XChaCha20, Blake2bMac<U32>), PasetoError> {
+fn wrap_keys(pass: &[u8], prefix: &Prefix) -> Result<(XChaCha20, Blake2bMac<U32>), PasetoError> {
     use cipher::KeyIvInit;
 
     let mut key = [0u8; 32];
-    params
+    prefix
+        .params
         .pbkdf()?
-        .hash_password_into(pass, salt, &mut key)
+        .hash_password_into(pass, &prefix.salt, &mut key)
         .map_err(|_| PasetoError::CryptoError)?;
 
-    let ek = kdf(&key, &[0xFF]);
-    let ak = kdf(&key, &[0xFE]);
+    let ek = kdf(&key, 0xFF);
+    let ak = kdf(&key, 0xFE);
 
-    let cipher = XChaCha20::new(&ek, nonce.into());
+    let cipher = XChaCha20::new(&ek, (&prefix.nonce).into());
     let mac = blake2::Blake2bMac::new_from_slice(&ak).expect("key should be valid");
     Ok((cipher, mac))
 }
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable, Unaligned)]
+#[repr(C)]
+struct Prefix {
+    salt: [u8; 16],
+    params: Params,
+    nonce: [u8; 24],
+}
+
+#[derive(FromBytes, IntoBytes, KnownLayout, Immutable, Unaligned)]
+#[repr(C)]
+struct Suffix {
+    tag: [u8; 32],
+}
+
+#[derive(FromBytes, IntoBytes, KnownLayout, Immutable, Unaligned, Clone, Copy)]
 #[repr(C)]
 pub struct Params {
     mem: big_endian::U64,
@@ -87,19 +97,18 @@ impl PwWrapVersion for V4 {
         params: &Params,
         mut key_data: Vec<u8>,
     ) -> Result<Vec<u8>, PasetoError> {
-        let mut salt = [0u8; 16];
-        let mut nonce = [0u8; 24];
-        getrandom::fill(&mut salt).map_err(|_| PasetoError::CryptoError)?;
-        getrandom::fill(&mut nonce).map_err(|_| PasetoError::CryptoError)?;
-
-        let (mut cipher, mut mac) = wrap_keys(pass, params, &salt, &nonce)?;
-        cipher.apply_keystream(&mut key_data);
-        auth(&mut mac, header, &salt, params, &nonce, &key_data);
-
         let mut out = Vec::with_capacity(88 + key_data.len());
-        out.extend_from_slice(&salt);
-        out.extend_from_slice(params.as_bytes());
-        out.extend_from_slice(&nonce);
+        out.extend_from_slice(&[0; 56]);
+        let prefix = Prefix::mut_from_bytes(&mut out).expect("should be correct size");
+
+        prefix.params = *params;
+        getrandom::fill(&mut prefix.salt).map_err(|_| PasetoError::CryptoError)?;
+        getrandom::fill(&mut prefix.nonce).map_err(|_| PasetoError::CryptoError)?;
+
+        let (mut cipher, mut mac) = wrap_keys(pass, prefix)?;
+        cipher.apply_keystream(&mut key_data);
+        auth(&mut mac, header, prefix, &key_data);
+
         out.extend_from_slice(&key_data);
         out.extend_from_slice(&mac.finalize().into_bytes());
         Ok(out)
@@ -115,25 +124,14 @@ impl PwWrapVersion for V4 {
         pass: &[u8],
         key_data: &'key mut [u8],
     ) -> Result<&'key [u8], PasetoError> {
-        let (salt, ciphertext) = key_data
-            .split_first_chunk_mut()
-            .ok_or(PasetoError::InvalidKey)?;
-        let (params, ciphertext) = ciphertext
-            .split_first_chunk_mut::<16>()
-            .ok_or(PasetoError::InvalidKey)?;
-        let (nonce, ciphertext) = ciphertext
-            .split_first_chunk_mut()
-            .ok_or(PasetoError::InvalidKey)?;
-        let (ciphertext, tag) = ciphertext
-            .split_last_chunk_mut()
-            .ok_or(PasetoError::InvalidKey)?;
-        let tag: &[u8; 32] = tag;
+        let (prefix, ciphertext) =
+            Prefix::mut_from_prefix(key_data).map_err(|_| PasetoError::InvalidKey)?;
+        let (ciphertext, suffix) =
+            Suffix::mut_from_suffix(ciphertext).map_err(|_| PasetoError::InvalidKey)?;
 
-        let params = Params::ref_from_bytes(params).expect("should be the correct size");
-
-        let (mut cipher, mut mac) = wrap_keys(pass, params, salt, nonce)?;
-        auth(&mut mac, header, salt, params, nonce, ciphertext);
-        mac.verify(tag.into())
+        let (mut cipher, mut mac) = wrap_keys(pass, prefix)?;
+        auth(&mut mac, header, prefix, ciphertext);
+        mac.verify((&suffix.tag).into())
             .map_err(|_| PasetoError::CryptoError)?;
 
         cipher.apply_keystream(ciphertext);
@@ -142,11 +140,11 @@ impl PwWrapVersion for V4 {
     }
 }
 
-fn kdf(key: &[u8], sep: &'static [u8]) -> GenericArray<u8, U32> {
+fn kdf(key: &[u8], sep: u8) -> GenericArray<u8, U32> {
     use digest::Digest;
 
     let mut mac = blake2::Blake2b::<U32>::default();
-    mac.update(sep);
+    mac.update([sep]);
     mac.update(key);
     mac.finalize()
 }
@@ -154,15 +152,11 @@ fn kdf(key: &[u8], sep: &'static [u8]) -> GenericArray<u8, U32> {
 fn auth(
     mac: &mut blake2::Blake2bMac<U32>,
     header: &'static str,
-    salt: &[u8],
-    params: &Params,
-    nonce: &[u8],
+    prefix: &Prefix,
     ciphertext: &[u8],
 ) {
     mac.update(b"k4");
     mac.update(header.as_bytes());
-    mac.update(salt);
-    mac.update(params.as_bytes());
-    mac.update(nonce);
+    mac.update(prefix.as_bytes());
     mac.update(ciphertext);
 }

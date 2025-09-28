@@ -1181,6 +1181,7 @@ dependencies = [
  "libsodium-rs",
  "paseto-core",
  "paseto-json",
+ "zerocopy",
 ]
 
 [[package]]

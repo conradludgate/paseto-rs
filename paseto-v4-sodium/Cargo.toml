@@ -18,6 +18,7 @@ categories = [
 [dependencies]
 paseto-core.workspace = true
 libsodium-rs = "0.2"
+zerocopy = { version = "0.8", features = ["derive"] }
 
 [dev-dependencies]
 paseto-json.workspace = true

@@ -7,6 +7,9 @@ use crate::version::{PieWrapVersion, SealingMarker};
 use crate::{LocalKey, PasetoError};
 
 /// An symmetrically encrypted [`Key`].
+///
+/// * Encrypted using [`Key::wrap_pie`]
+/// * Decrypted using [`PieWrappedKey::unwrap`]
 pub struct PieWrappedKey<V: PieWrapVersion, K: SealingMarker> {
     key_data: Box<[u8]>,
     _version: PhantomData<(V, K)>,
