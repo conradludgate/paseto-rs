@@ -12,13 +12,22 @@ fn main() {
 
     let mut tests = vec![];
 
-    // WrapTest::<paseto_v3::core::V3>::add_tests("paseto-v3", &mut tests);
-    // WrapTest::<paseto_v3_aws_lc::core::V3>::add_tests("paseto-v3-aws-lc", &mut tests);
-    WrapTest::<paseto_v4::core::V4, Local>::add_tests("paseto-v4", &mut tests);
-    WrapTest::<paseto_v4::core::V4, Secret>::add_tests("paseto-v4", &mut tests);
-    // WrapTest::<paseto_v4_sodium::core::V4>::add_tests("paseto-v4-sodium", &mut tests);
+    add_all_tests::<paseto_v3::core::V3>("paseto-v3", &mut tests);
+    add_all_tests::<paseto_v3_aws_lc::core::V3>("paseto-v3-aws-lc", &mut tests);
+    add_all_tests::<paseto_v4::core::V4>("paseto-v4", &mut tests);
+    add_all_tests::<paseto_v4_sodium::core::V4>("paseto-v4-sodium", &mut tests);
 
     libtest_mimic::run(&args, tests).exit();
+}
+
+fn add_all_tests<V: PieWrapVersion>(name: &str, tests: &mut Vec<Trial>)
+where
+    V::LocalKey: Send + 'static,
+    V::PublicKey: Send + 'static,
+    V::SecretKey: Send + 'static,
+{
+    WrapTest::<V, Local>::add_tests(name, tests);
+    WrapTest::<V, Secret>::add_tests(name, tests);
 }
 
 #[derive(Deserialize)]

@@ -1,16 +1,15 @@
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-use cipher::{ArrayLength, StreamCipher};
-use generic_array::GenericArray;
+use cipher::StreamCipher;
 use generic_array::sequence::Split;
-use hmac::{Hmac, Mac};
-use p384::U48;
+use generic_array::typenum::U48;
+use generic_array::{ArrayLength, GenericArray};
+use hmac::Mac;
 use paseto_core::PasetoError;
 use paseto_core::key::{KeyKind, SealingKey, UnsealingKey};
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
 use paseto_core::version::{Local, Marker};
-use sha2::Sha384;
 
 use super::{LocalKey, V3};
 
@@ -34,8 +33,8 @@ impl LocalKey {
         use cipher::KeyIvInit;
         use digest::Mac;
 
-        let (ek, n2) = kdf::<U48>(&self.0, "paseto-encryption-key", nonce).split();
-        let ak: GenericArray<u8, U48> = kdf(&self.0, "paseto-auth-key-for-aead", nonce);
+        let (ek, n2) = kdf::<U48>(&self.0, b"paseto-encryption-key", nonce).split();
+        let ak: GenericArray<u8, U48> = kdf(&self.0, b"paseto-auth-key-for-aead", nonce);
 
         let cipher = ctr::Ctr64BE::<aes::Aes256>::new(&ek, &n2);
         let mac = hmac::Hmac::new_from_slice(&ak).expect("key should be valid");
@@ -74,9 +73,9 @@ impl SealingKey<Local> for LocalKey {
             .split_first_chunk_mut::<32>()
             .ok_or(PasetoError::InvalidToken)?;
 
-        let (mut cipher, mac) = self.keys(nonce);
+        let (mut cipher, mut mac) = self.keys(nonce);
         cipher.apply_keystream(ciphertext);
-        let mac = preauth_local(mac, encoding, nonce, ciphertext, footer, aad);
+        preauth_local(&mut mac, encoding, nonce, ciphertext, footer, aad);
         payload.extend_from_slice(&mac.finalize().into_bytes());
 
         Ok(payload)
@@ -103,8 +102,8 @@ impl UnsealingKey<Local> for LocalKey {
             .split_first_chunk_mut::<32>()
             .ok_or(PasetoError::InvalidToken)?;
 
-        let (mut cipher, mac) = self.keys(nonce);
-        let mac = preauth_local(mac, encoding, nonce, ciphertext, footer, aad);
+        let (mut cipher, mut mac) = self.keys(nonce);
+        preauth_local(&mut mac, encoding, nonce, ciphertext, footer, aad);
         mac.verify_slice(tag)
             .map_err(|_| PasetoError::CryptoError)?;
         cipher.apply_keystream(ciphertext);
@@ -112,32 +111,32 @@ impl UnsealingKey<Local> for LocalKey {
         Ok(ciphertext)
     }
 }
-fn kdf<O>(key: &[u8], sep: &'static str, nonce: &[u8]) -> GenericArray<u8, O>
+
+fn kdf<O>(key: &[u8], sep: &'static [u8], nonce: &[u8]) -> GenericArray<u8, O>
 where
     O: ArrayLength<u8>,
 {
     let mut output = GenericArray::<u8, O>::default();
     hkdf::Hkdf::<sha2::Sha384>::new(None, key)
-        .expand_multi_info(&[sep.as_bytes(), nonce], &mut output)
+        .expand_multi_info(&[sep, nonce], &mut output)
         .unwrap();
     output
 }
+
 fn preauth_local(
-    mac: Hmac<Sha384>,
+    mac: &mut hmac::Hmac<sha2::Sha384>,
     encoding: &'static str,
     nonce: &[u8],
     ciphertext: &[u8],
     footer: &[u8],
     aad: &[u8],
-) -> Hmac<Sha384> {
-    struct Context(Hmac<Sha384>);
-    impl WriteBytes for Context {
+) {
+    struct Context<'a>(&'a mut hmac::Hmac<sha2::Sha384>);
+    impl WriteBytes for Context<'_> {
         fn write(&mut self, slice: &[u8]) {
             self.0.update(slice)
         }
     }
-
-    let mut ctx = Context(mac);
 
     pre_auth_encode(
         [
@@ -151,8 +150,6 @@ fn preauth_local(
             &[footer],
             &[aad],
         ],
-        &mut ctx,
+        Context(mac),
     );
-
-    ctx.0
 }

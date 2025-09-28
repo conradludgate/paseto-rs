@@ -6,7 +6,7 @@ use paseto_core::key::{KeyKind, SealingKey, UnsealingKey};
 use paseto_core::pae::pre_auth_encode;
 use paseto_core::version::{Local, Marker};
 
-use super::{LocalKey, V4};
+use super::{LocalKey, V4, kdf};
 
 impl KeyKind for LocalKey {
     type Version = V4;
@@ -32,8 +32,8 @@ impl LocalKey {
         xchacha20::Nonce,
         crypto_generichash::State,
     ) {
-        let ekn2 = kdf(&self.0, "paseto-encryption-key", nonce, 56);
-        let ak = kdf(&self.0, "paseto-auth-key-for-aead", nonce, 32);
+        let ekn2 = kdf(&self.0, b"paseto-encryption-key", nonce, 56);
+        let ak = kdf(&self.0, b"paseto-auth-key-for-aead", nonce, 32);
 
         let (ek, n2) = ekn2
             .split_last_chunk::<24>()
@@ -119,14 +119,6 @@ impl UnsealingKey<Local> for LocalKey {
 
         Ok(ciphertext)
     }
-}
-
-fn kdf(key: &[u8], sep: &'static str, nonce: &[u8], len: usize) -> Vec<u8> {
-    let mut ctx =
-        crypto_generichash::State::new(Some(key), len).expect("could not construct hasher");
-    ctx.update(sep.as_bytes());
-    ctx.update(nonce);
-    ctx.finalize()
 }
 
 struct PreAuthEncodeDigest<'a>(pub &'a mut crypto_generichash::State);

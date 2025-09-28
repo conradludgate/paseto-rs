@@ -1,8 +1,9 @@
 mod local;
+mod pie_wrap;
 mod pke;
 mod public;
 
-use libsodium_rs::crypto_sign;
+use libsodium_rs::{crypto_generichash, crypto_sign};
 
 pub struct V4;
 
@@ -27,11 +28,18 @@ impl paseto_core::version::PaserkVersion for V4 {
     const PASERK_HEADER: &'static str = "k4";
 
     fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33] {
-        let mut ctx = libsodium_rs::crypto_generichash::State::new(None, 33)
-            .expect("hash size should be valid");
+        let mut ctx = crypto_generichash::State::new(None, 33).expect("hash size should be valid");
         ctx.update(Self::PASERK_HEADER.as_bytes());
         ctx.update(key_header.as_bytes());
         ctx.update(key_data);
         ctx.finalize().try_into().expect("hash should be 33 bytes")
     }
+}
+
+fn kdf(key: &[u8], sep: &'static [u8], nonce: &[u8], len: usize) -> Vec<u8> {
+    let mut ctx =
+        crypto_generichash::State::new(Some(key), len).expect("could not construct hasher");
+    ctx.update(sep);
+    ctx.update(nonce);
+    ctx.finalize()
 }

@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 use cipher::StreamCipher;
 use curve25519_dalek::EdwardsPoint;
 use digest::Mac;
-use digest::consts::U32;
+use generic_array::typenum::U32;
 use paseto_core::PasetoError;
 use paseto_core::version::PkeVersion;
 

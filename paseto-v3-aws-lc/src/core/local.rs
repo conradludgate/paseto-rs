@@ -28,11 +28,11 @@ impl KeyKind for LocalKey {
 
 impl LocalKey {
     fn keys(&self, nonce: &[u8]) -> Result<(Cipher, hmac::Key), PasetoError> {
-        let aead_key = kdf::<48>(&self.0, "paseto-encryption-key", nonce)?;
+        let aead_key = kdf(&self.0, "paseto-encryption-key", nonce)?;
         let (ek, n2) = aead_key
             .split_last_chunk::<16>()
             .ok_or(PasetoError::CryptoError)?;
-        let ak = kdf::<48>(&self.0, "paseto-auth-key-for-aead", nonce)?;
+        let ak = kdf(&self.0, "paseto-auth-key-for-aead", nonce)?;
 
         let key = UnboundCipherKey::new(&AES_256, ek).map_err(|_| PasetoError::CryptoError)?;
         let iv = FixedLength::from(n2);
@@ -113,25 +113,21 @@ impl UnsealingKey<Local> for LocalKey {
     }
 }
 
-fn kdf<const N: usize>(
-    key: &[u8],
-    sep: &'static str,
-    nonce: &[u8],
-) -> Result<[u8; N], PasetoError> {
-    struct Len<const N: usize>;
-    impl<const N: usize> KeyType for Len<N> {
+fn kdf(key: &[u8], sep: &'static str, nonce: &[u8]) -> Result<[u8; 48], PasetoError> {
+    struct Len;
+    impl KeyType for Len {
         fn len(&self) -> usize {
-            N
+            48
         }
     }
 
     let ikm = [sep.as_bytes(), nonce];
     let prk = hkdf::Salt::new(HKDF_SHA384, &[]).extract(key);
     let okm = prk
-        .expand(&ikm, Len::<N>)
+        .expand(&ikm, Len)
         .map_err(|_| PasetoError::CryptoError)?;
 
-    let mut output = [0; N];
+    let mut output = [0; 48];
     okm.fill(&mut output)
         .map_err(|_| PasetoError::CryptoError)?;
     Ok(output)
