@@ -1,9 +1,8 @@
 use blake2::Blake2bMac;
 use chacha20::XChaCha20;
-use cipher::{ArrayLength, StreamCipher};
+use cipher::StreamCipher;
 use digest::Mac;
-use digest::consts::{U32, U56, U64};
-use digest::typenum::{IsLessOrEqual, LeEq, NonZero};
+use digest::consts::{U32, U56};
 use generic_array::GenericArray;
 use generic_array::sequence::Split;
 use paseto_core::PasetoError;
@@ -11,7 +10,7 @@ use paseto_core::key::{KeyKind, SealingKey, UnsealingKey};
 use paseto_core::pae::pre_auth_encode;
 use paseto_core::version::{Local, Marker};
 
-use super::{LocalKey, PreAuthEncodeDigest, V4};
+use super::{LocalKey, PreAuthEncodeDigest, V4, kdf};
 
 impl KeyKind for LocalKey {
     type Version = V4;
@@ -33,8 +32,8 @@ impl LocalKey {
         use cipher::KeyIvInit;
         use digest::Mac;
 
-        let (ek, n2) = kdf::<U56>(&self.0, "paseto-encryption-key", nonce).split();
-        let ak: GenericArray<u8, U32> = kdf(&self.0, "paseto-auth-key-for-aead", nonce);
+        let (ek, n2) = kdf::<U56>(&self.0, b"paseto-encryption-key", nonce).split();
+        let ak: GenericArray<u8, U32> = kdf(&self.0, b"paseto-auth-key-for-aead", nonce);
 
         let cipher = XChaCha20::new(&ek, &n2);
         let mac = blake2::Blake2bMac::new_from_slice(&ak).expect("key should be valid");
@@ -89,36 +88,23 @@ impl UnsealingKey<Local> for LocalKey {
         footer: &[u8],
         aad: &[u8],
     ) -> Result<&'a [u8], PasetoError> {
-        let len = payload.len();
-        if len < 64 {
-            return Err(PasetoError::InvalidToken);
-        }
-
-        let (ciphertext, tag) = payload.split_at_mut(len - 32);
-        let (nonce, ciphertext) = ciphertext.split_at_mut(32);
-        let nonce: &[u8] = nonce;
+        let (ciphertext, tag) = payload
+            .split_last_chunk_mut::<32>()
+            .ok_or(PasetoError::InvalidToken)?;
+        let (nonce, ciphertext) = ciphertext
+            .split_first_chunk_mut::<32>()
+            .ok_or(PasetoError::InvalidToken)?;
+        let nonce: &[u8; 32] = nonce;
+        let tag: &[u8; 32] = tag;
 
         let (mut cipher, mut mac) = self.keys(nonce.into());
         preauth_local(&mut mac, encoding, nonce, ciphertext, footer, aad);
-        mac.verify_slice(tag)
+        mac.verify(tag.into())
             .map_err(|_| PasetoError::CryptoError)?;
         cipher.apply_keystream(ciphertext);
 
         Ok(ciphertext)
     }
-}
-
-fn kdf<O>(key: &[u8], sep: &'static str, nonce: &[u8]) -> GenericArray<u8, O>
-where
-    O: ArrayLength<u8> + IsLessOrEqual<U64>,
-    LeEq<O, U64>: NonZero,
-{
-    use digest::Mac;
-
-    let mut mac = blake2::Blake2bMac::<O>::new_from_slice(key).expect("key should be valid");
-    mac.update(sep.as_bytes());
-    mac.update(nonce);
-    mac.finalize().into_bytes()
 }
 
 fn preauth_local(

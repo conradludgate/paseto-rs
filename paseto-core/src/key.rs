@@ -356,6 +356,32 @@ impl<V: PieWrapVersion> LocalKey<V> {
     }
 }
 
+impl<V: PieWrapVersion, K: SealingMarker> fmt::Display for PieWrappedKey<V, K> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(V::PASERK_HEADER)?;
+        f.write_str(K::PIE_WRAP_HEADER)?;
+        crate::base64::write_to_fmt(&self.key_data, f)
+    }
+}
+
+impl<V: PieWrapVersion, K: SealingMarker> std::str::FromStr for PieWrappedKey<V, K> {
+    type Err = PasetoError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s
+            .strip_prefix(V::PASERK_HEADER)
+            .ok_or(PasetoError::InvalidKey)?;
+        let s = s
+            .strip_prefix(K::PIE_WRAP_HEADER)
+            .ok_or(PasetoError::InvalidKey)?;
+
+        Ok(PieWrappedKey {
+            key_data: crate::base64::decode_vec(s)?.into_boxed_slice(),
+            _version: PhantomData,
+        })
+    }
+}
+
 /// An password encrypted [`Key`].
 pub struct PasswordWrappedKey<V: PwWrapVersion, K: SealingMarker> {
     key_data: Box<[u8]>,
@@ -378,5 +404,31 @@ impl<V: PwWrapVersion, K: SealingMarker> PasswordWrappedKey<V, K> {
         V::pw_unwrap_key(K::PW_WRAP_HEADER, pass, self.key_data.into_vec())
             .and_then(|key_data| KeyKind::decode(&key_data))
             .map(Key)
+    }
+}
+
+impl<V: PwWrapVersion, K: SealingMarker> fmt::Display for PasswordWrappedKey<V, K> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(V::PASERK_HEADER)?;
+        f.write_str(K::PW_WRAP_HEADER)?;
+        crate::base64::write_to_fmt(&self.key_data, f)
+    }
+}
+
+impl<V: PwWrapVersion, K: SealingMarker> std::str::FromStr for PasswordWrappedKey<V, K> {
+    type Err = PasetoError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s
+            .strip_prefix(V::PASERK_HEADER)
+            .ok_or(PasetoError::InvalidKey)?;
+        let s = s
+            .strip_prefix(K::PW_WRAP_HEADER)
+            .ok_or(PasetoError::InvalidKey)?;
+
+        Ok(PasswordWrappedKey {
+            key_data: crate::base64::decode_vec(s)?.into_boxed_slice(),
+            _version: PhantomData,
+        })
     }
 }

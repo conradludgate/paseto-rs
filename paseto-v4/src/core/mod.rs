@@ -1,9 +1,10 @@
 mod local;
+mod pie_wrap;
 mod pke;
 mod public;
 
-use generic_array::GenericArray;
-use generic_array::typenum::U32;
+use generic_array::typenum::{IsLessOrEqual, LeEq, NonZero, U32, U64};
+use generic_array::{ArrayLength, GenericArray};
 
 pub struct V4;
 
@@ -46,4 +47,17 @@ impl<'a, M: digest::Update> paseto_core::pae::WriteBytes for PreAuthEncodeDigest
     fn write(&mut self, slice: &[u8]) {
         self.0.update(slice)
     }
+}
+
+fn kdf<O>(key: &[u8], sep: &'static [u8], nonce: &[u8]) -> GenericArray<u8, O>
+where
+    O: ArrayLength<u8> + IsLessOrEqual<U64>,
+    LeEq<O, U64>: NonZero,
+{
+    use digest::Mac;
+
+    let mut mac = blake2::Blake2bMac::<O>::new_from_slice(key).expect("key should be valid");
+    mac.update(sep);
+    mac.update(nonce);
+    mac.finalize().into_bytes()
 }
