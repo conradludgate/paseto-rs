@@ -90,6 +90,7 @@ impl<V, T, M, F> SealedToken<V, T, M, F> {
 }
 
 impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> SealedToken<V, P, M, F> {
+    /// Unseal a token and validate the claims inside.
     #[doc(alias = "decrypt")]
     #[doc(alias = "verify")]
     pub fn unseal(
@@ -121,6 +122,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> SealedToke
 }
 
 impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedToken<V, P, M, F> {
+    /// Seal a token and authenticate the claims
     #[doc(alias = "encrypt")]
     #[doc(alias = "sign")]
     #[inline(always)]

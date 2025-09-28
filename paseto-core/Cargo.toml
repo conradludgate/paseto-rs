@@ -21,3 +21,4 @@ serde = ["dep:serde_core"]
 
 [dependencies]
 serde_core = { version = "1", optional = true }
+hashbrown = { version = "0.16", default-features = false }

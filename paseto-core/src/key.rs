@@ -124,8 +124,16 @@ pub trait UnsealingKey<Purpose>: KeyKind {
 
 /// A short ID for a key.
 pub struct KeyId<V: PaserkVersion, K: Marker> {
-    id: [u8; 33],
+    pub(crate) id: [u8; 33],
     _key: PhantomData<(V, K)>,
+}
+
+impl<V: PaserkVersion, K: Marker> Copy for KeyId<V, K> {}
+
+impl<V: PaserkVersion, K: Marker> Clone for KeyId<V, K> {
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 
 impl<V: PaserkVersion, K: Marker> PartialEq for KeyId<V, K> {

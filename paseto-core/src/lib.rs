@@ -5,6 +5,7 @@ pub mod pae;
 pub mod tokens;
 pub mod validation;
 pub mod version;
+pub mod keyset;
 
 pub use key::{LocalKey, PublicKey, SecretKey};
 pub use tokens::{DecryptedToken, EncryptedToken, SignedToken, VerifiedToken};
