@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::key::{Key, PasswordWrappedKey};
-use paseto_core::version::{Local, PwWrapVersion, SealingMarker, Secret};
+use paseto_core::key::Key;
+use paseto_core::paserk::{PasswordWrappedKey, PwWrapVersion};
+use paseto_core::version::{Local, SealingMarker, Secret};
 use paseto_test::{Bool, TestFile, eq_keys, read_test};
 use serde::Deserialize;
 

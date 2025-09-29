@@ -64,8 +64,8 @@ pub type PublicKey = paseto_core::PublicKey<core::V3>;
 pub type SecretKey = paseto_core::SecretKey<core::V3>;
 
 /// A short ID for a key.
-pub type KeyId<K> = paseto_core::key::KeyId<core::V3, K>;
+pub type KeyId<K> = paseto_core::paserk::KeyId<core::V3, K>;
 /// A plaintext encoding of a key.
-pub type KeyText<K> = paseto_core::key::KeyText<core::V3, K>;
+pub type KeyText<K> = paseto_core::paserk::KeyText<core::V3, K>;
 /// An asymmetrically encrypted [`LocalKey`].
-pub type SealedKey = paseto_core::key::SealedKey<core::V3>;
+pub type SealedKey = paseto_core::paserk::SealedKey<core::V3>;

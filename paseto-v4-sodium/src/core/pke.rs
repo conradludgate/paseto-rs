@@ -3,7 +3,7 @@ use libsodium_rs::utils::compare;
 use libsodium_rs::{crypto_generichash, crypto_sign};
 use paseto_core::PasetoError;
 use paseto_core::key::SealingKey;
-use paseto_core::version::PkeVersion;
+use paseto_core::paserk::PkeVersion;
 
 use super::{LocalKey, PublicKey, SecretKey, V4};
 

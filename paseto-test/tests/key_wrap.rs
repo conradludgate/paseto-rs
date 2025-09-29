@@ -2,8 +2,9 @@ use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
 use paseto_core::LocalKey;
-use paseto_core::key::{Key, PieWrappedKey};
-use paseto_core::version::{Local, PieWrapVersion, SealingMarker, Secret};
+use paseto_core::key::Key;
+use paseto_core::paserk::{PieWrapVersion, PieWrappedKey};
+use paseto_core::version::{Local, SealingMarker, Secret};
 use paseto_test::{Bool, TestFile, eq_keys, read_test};
 use serde::Deserialize;
 

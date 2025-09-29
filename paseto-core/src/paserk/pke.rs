@@ -3,7 +3,7 @@ use core::fmt;
 use core::marker::PhantomData;
 
 use crate::key::Key;
-use crate::version::PkeVersion;
+use crate::paserk::PkeVersion;
 use crate::{LocalKey, PasetoError, PublicKey, SecretKey};
 
 /// An asymmetrically encrypted [`LocalKey`].

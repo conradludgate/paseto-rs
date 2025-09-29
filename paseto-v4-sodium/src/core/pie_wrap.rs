@@ -2,7 +2,7 @@ use libsodium_rs::crypto_stream::{self, xchacha20};
 use libsodium_rs::utils::compare;
 use libsodium_rs::{crypto_generichash, random};
 use paseto_core::PasetoError;
-use paseto_core::version::PieWrapVersion;
+use paseto_core::paserk::PieWrapVersion;
 
 use super::{LocalKey, V4, kdf};
 

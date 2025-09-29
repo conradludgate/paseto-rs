@@ -1,23 +1,10 @@
-mod id;
-mod keyset;
-mod pie_wrap;
-mod pke;
-mod plaintext;
-mod pw_wrap;
-
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::fmt;
 
-pub use id::KeyId;
-pub use keyset::KeySet;
-pub use pie_wrap::PieWrappedKey;
-pub use pke::SealedKey;
-pub use plaintext::KeyText;
-pub use pw_wrap::PasswordWrappedKey;
-
 use crate::PasetoError;
-use crate::version::{Local, Marker, PaserkVersion, Public, Purpose, Secret, Version};
+use crate::paserk::{KeyId, KeyText, PaserkVersion};
+use crate::version::{Local, Marker, Public, Purpose, Secret, Version};
 
 /// Defines a PASERK key type
 pub trait KeyKind: Sized {
@@ -46,13 +33,6 @@ pub type LocalKey<V> = Key<V, Local>;
 pub type PublicKey<V> = Key<V, Public>;
 /// Private key used for token [`signing`](crate::VerifiedToken::sign)
 pub type SecretKey<V> = Key<V, Secret>;
-
-impl<V: PaserkVersion, K: Marker> core::str::FromStr for Key<V, K> {
-    type Err = PasetoError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        KeyText::<V, K>::from_str(s).and_then(|k| k.decode())
-    }
-}
 
 impl<V: Version, K: Marker> Key<V, K> {
     pub fn from_raw_bytes(b: &[u8]) -> Result<Self, PasetoError> {
@@ -83,6 +63,13 @@ impl<V: Version> LocalKey<V> {
 impl<V: PaserkVersion> fmt::Display for PublicKey<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.expose_key().fmt(f)
+    }
+}
+
+impl<V: PaserkVersion, K: Marker> core::str::FromStr for Key<V, K> {
+    type Err = PasetoError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        KeyText::<V, K>::from_str(s).and_then(|k| k.decode())
     }
 }
 

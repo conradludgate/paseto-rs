@@ -26,7 +26,7 @@ impl paseto_core::version::Version for V3 {
     type SecretKey = SecretKey;
 }
 
-impl paseto_core::version::PaserkVersion for V3 {
+impl paseto_core::paserk::PaserkVersion for V3 {
     const PASERK_HEADER: &'static str = "k3";
 
     fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33] {

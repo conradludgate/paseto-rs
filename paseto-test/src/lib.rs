@@ -1,5 +1,6 @@
 use paseto_core::key::Key;
-use paseto_core::version::{Marker, PaserkVersion, Version};
+use paseto_core::paserk::PaserkVersion;
+use paseto_core::version::{Marker, Version};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
 

@@ -3,7 +3,8 @@ use core::fmt;
 use core::marker::PhantomData;
 
 use crate::key::{Key, KeyKind};
-use crate::version::{PieWrapVersion, SealingMarker};
+use crate::paserk::PieWrapVersion;
+use crate::version::SealingMarker;
 use crate::{LocalKey, PasetoError};
 
 /// An symmetrically encrypted [`Key`].

@@ -1,7 +1,3 @@
-use alloc::boxed::Box;
-use alloc::vec::Vec;
-
-use crate::PasetoError;
 use crate::key::{KeyKind, SealingKey, UnsealingKey};
 use crate::sealed::Sealed;
 
@@ -18,60 +14,6 @@ pub trait Version: 'static {
     type PublicKey: UnsealingKey<Public> + KeyKind<Version = Self, KeyType = Public>;
     /// An asymmetric key used to create token signatures.
     type SecretKey: SealingKey<Public> + KeyKind<Version = Self, KeyType = Secret>;
-}
-
-/// An implementation of the PASERK cryptographic schemes.
-pub trait PaserkVersion: Version {
-    /// Header for PASERK
-    const PASERK_HEADER: &'static str;
-
-    /// How to hash some keydata for creating [`KeyId`](crate::key::KeyId)
-    fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33];
-}
-
-pub trait PieWrapVersion: PaserkVersion {
-    fn pie_wrap_key(
-        header: &'static str,
-        wrapping_key: &Self::LocalKey,
-        key_data: Vec<u8>,
-    ) -> Result<Vec<u8>, PasetoError>;
-
-    fn pie_unwrap_key<'key>(
-        header: &'static str,
-        wrapping_key: &Self::LocalKey,
-        key_data: &'key mut [u8],
-    ) -> Result<&'key [u8], PasetoError>;
-}
-
-pub trait PwWrapVersion: PaserkVersion {
-    type Params: Default;
-
-    fn pw_wrap_key(
-        header: &'static str,
-        pass: &[u8],
-        params: &Self::Params,
-        key_data: Vec<u8>,
-    ) -> Result<Vec<u8>, PasetoError>;
-
-    fn get_params(key_data: &[u8]) -> Result<Self::Params, PasetoError>;
-
-    fn pw_unwrap_key<'key>(
-        header: &'static str,
-        pass: &[u8],
-        key_data: &'key mut [u8],
-    ) -> Result<&'key [u8], PasetoError>;
-}
-
-pub trait PkeVersion: PaserkVersion {
-    fn seal_key(
-        sealing_key: &Self::PublicKey,
-        key: Self::LocalKey,
-    ) -> Result<Box<[u8]>, PasetoError>;
-
-    fn unseal_key(
-        sealing_key: &Self::SecretKey,
-        key_data: Box<[u8]>,
-    ) -> Result<Self::LocalKey, PasetoError>;
 }
 
 /// Marks a key as secret

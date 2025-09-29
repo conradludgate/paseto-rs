@@ -4,7 +4,8 @@ use core::marker::PhantomData;
 
 use crate::PasetoError;
 use crate::key::{Key, KeyKind};
-use crate::version::{PwWrapVersion, SealingMarker};
+use crate::paserk::PwWrapVersion;
+use crate::version::SealingMarker;
 
 /// An password encrypted [`Key`].
 ///

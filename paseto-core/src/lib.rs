@@ -6,11 +6,13 @@ extern crate alloc;
 #[cfg(test)]
 extern crate std;
 
-mod base64;
 #[macro_use]
 pub mod encodings;
+
+mod base64;
 pub mod key;
 pub mod pae;
+pub mod paserk;
 pub mod tokens;
 pub mod validation;
 pub mod version;

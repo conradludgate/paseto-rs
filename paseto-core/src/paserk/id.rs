@@ -3,8 +3,8 @@ use core::fmt;
 use core::marker::PhantomData;
 
 use crate::PasetoError;
-use crate::key::KeyText;
-use crate::version::{Marker, PaserkVersion};
+use crate::paserk::{KeyText, PaserkVersion};
+use crate::version::Marker;
 
 /// A short ID for a key.
 pub struct KeyId<V: PaserkVersion, K: Marker> {

@@ -3,7 +3,7 @@ use libsodium_rs::crypto_stream::{self, xchacha20};
 use libsodium_rs::utils::compare;
 use libsodium_rs::{crypto_generichash, random};
 use paseto_core::PasetoError;
-use paseto_core::version::PwWrapVersion;
+use paseto_core::paserk::PwWrapVersion;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned, big_endian};
 
 use super::V4;

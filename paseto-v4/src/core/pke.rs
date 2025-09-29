@@ -6,7 +6,7 @@ use curve25519_dalek::EdwardsPoint;
 use digest::Mac;
 use generic_array::typenum::U32;
 use paseto_core::PasetoError;
-use paseto_core::version::PkeVersion;
+use paseto_core::paserk::PkeVersion;
 
 use super::{LocalKey, PublicKey, SecretKey, V4};
 

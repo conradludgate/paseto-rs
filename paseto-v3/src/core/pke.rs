@@ -6,7 +6,7 @@ use generic_array::sequence::Split;
 use hmac::Mac;
 use paseto_core::PasetoError;
 use paseto_core::key::SealingKey;
-use paseto_core::version::PkeVersion;
+use paseto_core::paserk::PkeVersion;
 use sha2::Digest;
 
 use super::{LocalKey, PublicKey, SecretKey, V3};

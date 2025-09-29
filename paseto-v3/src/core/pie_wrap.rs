@@ -6,7 +6,7 @@ use generic_array::GenericArray;
 use generic_array::sequence::Split;
 use generic_array::typenum::U48;
 use paseto_core::PasetoError;
-use paseto_core::version::PieWrapVersion;
+use paseto_core::paserk::PieWrapVersion;
 
 use super::{LocalKey, V3};
 

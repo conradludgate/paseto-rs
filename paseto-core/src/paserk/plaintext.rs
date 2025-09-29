@@ -4,7 +4,8 @@ use core::marker::PhantomData;
 
 use crate::PasetoError;
 use crate::key::{Key, KeyKind};
-use crate::version::{Marker, PaserkVersion};
+use crate::paserk::PaserkVersion;
+use crate::version::Marker;
 
 /// A plaintext encoding of a key.
 ///

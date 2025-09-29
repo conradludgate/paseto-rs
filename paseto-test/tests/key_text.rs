@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::key::{Key, KeyText};
-use paseto_core::version::{Local, Marker, PaserkVersion, Public, Secret};
+use paseto_core::key::Key;
+use paseto_core::paserk::{KeyText, PaserkVersion};
+use paseto_core::version::{Local, Marker, Public, Secret};
 use paseto_test::{Bool, TestFile, read_test};
 use serde::Deserialize;
 

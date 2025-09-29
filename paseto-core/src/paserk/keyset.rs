@@ -1,7 +1,8 @@
 use hashbrown::HashTable;
 
-use crate::key::{Key, KeyId};
-use crate::version::{Marker, PaserkVersion};
+use crate::key::Key;
+use crate::paserk::{KeyId, PaserkVersion};
+use crate::version::Marker;
 
 /// A set of [`Key`]s, accessed via their [`KeyId`]
 pub struct KeySet<V: PaserkVersion, K: Marker> {

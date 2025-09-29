@@ -4,7 +4,7 @@ use aws_lc_rs::hmac::{self, HMAC_SHA384};
 use aws_lc_rs::iv::FixedLength;
 use aws_lc_rs::rand::{SecureRandom, SystemRandom};
 use paseto_core::PasetoError;
-use paseto_core::version::PieWrapVersion;
+use paseto_core::paserk::PieWrapVersion;
 
 use super::{Cipher, LocalKey, V3};
 

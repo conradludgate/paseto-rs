@@ -7,7 +7,7 @@ use digest::Mac;
 use generic_array::GenericArray;
 use generic_array::typenum::U32;
 use paseto_core::PasetoError;
-use paseto_core::version::PwWrapVersion;
+use paseto_core::paserk::PwWrapVersion;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned, big_endian};
 
 use super::V4;
