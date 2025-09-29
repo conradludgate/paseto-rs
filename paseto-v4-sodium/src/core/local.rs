@@ -2,7 +2,7 @@ use libsodium_rs::crypto_stream::{self, xchacha20};
 use libsodium_rs::utils::compare;
 use libsodium_rs::{crypto_generichash, random};
 use paseto_core::PasetoError;
-use paseto_core::key::{KeyKind, SealingKey, UnsealingKey};
+use paseto_core::key::KeyKind;
 use paseto_core::pae::pre_auth_encode;
 use paseto_core::version::{Local, Marker};
 
@@ -46,15 +46,15 @@ impl LocalKey {
     }
 }
 
-impl SealingKey<Local> for LocalKey {
-    fn unsealing_key(&self) -> LocalKey {
-        Self(self.0)
+impl paseto_core::version::SealingVersion<Local> for V4 {
+    fn unsealing_key(key: &crate::LocalKey) -> crate::LocalKey {
+        crate::LocalKey::from_inner(LocalKey(key.as_inner().0))
     }
 
-    fn random() -> Result<Self, PasetoError> {
+    fn random() -> Result<crate::LocalKey, PasetoError> {
         let mut bytes = [0; 32];
         random::fill_bytes(&mut bytes);
-        Ok(Self(bytes))
+        Ok(crate::LocalKey::from_inner(LocalKey(bytes)))
     }
 
     fn nonce() -> Result<Vec<u8>, PasetoError> {
@@ -62,7 +62,7 @@ impl SealingKey<Local> for LocalKey {
     }
 
     fn dangerous_seal_with_nonce(
-        &self,
+        key: &crate::LocalKey,
         encoding: &'static str,
         mut payload: Vec<u8>,
         footer: &[u8],
@@ -71,7 +71,7 @@ impl SealingKey<Local> for LocalKey {
         let (nonce, plaintext) = payload
             .split_first_chunk::<32>()
             .ok_or(PasetoError::InvalidToken)?;
-        let (ek, n2, mut mac) = self.keys(nonce);
+        let (ek, n2, mut mac) = key.as_inner().keys(nonce);
 
         let ciphertext =
             xchacha20::stream_xor(plaintext, &n2, &ek).map_err(|_| PasetoError::CryptoError)?;
@@ -86,9 +86,9 @@ impl SealingKey<Local> for LocalKey {
     }
 }
 
-impl UnsealingKey<Local> for LocalKey {
+impl paseto_core::version::UnsealingVersion<Local> for V4 {
     fn unseal<'a>(
-        &self,
+        key: &crate::LocalKey,
         encoding: &'static str,
         payload: &'a mut [u8],
         footer: &[u8],
@@ -106,7 +106,7 @@ impl UnsealingKey<Local> for LocalKey {
             .split_first_chunk_mut::<32>()
             .ok_or(PasetoError::InvalidToken)?;
 
-        let (ek, n2, mut mac) = self.keys(nonce);
+        let (ek, n2, mut mac) = key.as_inner().keys(nonce);
 
         preauth_local(&mut mac, encoding, nonce, ciphertext, footer, aad);
         if compare(&mac.finalize(), tag) != 0 {

@@ -5,9 +5,9 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use crate::encodings::{Footer, Payload};
-use crate::key::{Key, SealingKey, UnsealingKey};
+use crate::key::Key;
 use crate::validation::Validate;
-use crate::version::{SealingMarker, UnsealingMarker};
+use crate::version::{Local, Public};
 use crate::{LocalKey, PasetoError, PublicKey, SecretKey, version};
 
 /// A token with publically readable data, but not yet verified
@@ -91,7 +91,13 @@ impl<V, T, M, F> SealedToken<V, T, M, F> {
     }
 }
 
-impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> SealedToken<V, P, M, F> {
+impl<V, P, M, F> SealedToken<V, P, M, F>
+where
+    V: version::UnsealingVersion<P>,
+    P: version::Purpose,
+    M: Payload,
+    F: Footer,
+{
     /// Unseal a token and validate the claims inside.
     #[doc(alias = "decrypt")]
     #[doc(alias = "verify")]
@@ -101,12 +107,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> SealedToke
         aad: &[u8],
         v: &impl Validate<Claims = M>,
     ) -> Result<UnsealedToken<V, P, M, F>, PasetoError> {
-        let cleartext = P::UnsealingMarker::coerce_types(&key.0).unseal(
-            M::SUFFIX,
-            &mut self.payload,
-            &self.encoded_footer,
-            aad,
-        )?;
+        let cleartext = V::unseal(key, M::SUFFIX, &mut self.payload, &self.encoded_footer, aad)?;
 
         let message = M::decode(cleartext).map_err(PasetoError::PayloadError)?;
 
@@ -121,7 +122,13 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> SealedToke
     }
 }
 
-impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedToken<V, P, M, F> {
+impl<V, P, M, F> UnsealedToken<V, P, M, F>
+where
+    V: version::SealingVersion<P>,
+    P: version::Purpose,
+    M: Payload,
+    F: Footer,
+{
     /// Seal a token and authenticate the claims
     #[doc(alias = "encrypt")]
     #[doc(alias = "sign")]
@@ -131,11 +138,7 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
         key: &Key<V, P::SealingMarker>,
         aad: &[u8],
     ) -> Result<SealedToken<V, P, M, F>, PasetoError> {
-        self.dangerous_seal_with_nonce(
-            key,
-            aad,
-            <P::SealingMarker as SealingMarker>::SealingKey::<V>::nonce()?,
-        )
+        self.dangerous_seal_with_nonce(key, aad, V::nonce()?)
     }
 
     /// Use [`UnsealedToken::seal`](crate::tokens::UnsealedToken::seal) instead.
@@ -159,9 +162,8 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
             .encode(&mut payload)
             .map_err(PasetoError::PayloadError)?;
 
-        let payload = P::SealingMarker::coerce_types(&key.0)
-            .dangerous_seal_with_nonce(M::SUFFIX, payload, &footer, aad)?
-            .into_boxed_slice();
+        let payload =
+            V::dangerous_seal_with_nonce(key, M::SUFFIX, payload, &footer, aad)?.into_boxed_slice();
 
         Ok(SealedToken {
             payload,
@@ -174,7 +176,12 @@ impl<V: version::Version, P: version::Purpose, M: Payload, F: Footer> UnsealedTo
     }
 }
 
-impl<V: version::Version, M: Payload, F: Footer> EncryptedToken<V, M, F> {
+impl<V, M, F> EncryptedToken<V, M, F>
+where
+    V: version::UnsealingVersion<Local>,
+    M: Payload,
+    F: Footer,
+{
     /// Try to decrypt the token
     #[inline(always)]
     pub fn decrypt(
@@ -197,7 +204,12 @@ impl<V: version::Version, M: Payload, F: Footer> EncryptedToken<V, M, F> {
     }
 }
 
-impl<V: version::Version, M: Payload, F: Footer> DecryptedToken<V, M, F> {
+impl<V, M, F> DecryptedToken<V, M, F>
+where
+    V: version::SealingVersion<Local>,
+    M: Payload,
+    F: Footer,
+{
     /// Encrypt the token
     #[inline(always)]
     pub fn encrypt(self, key: &LocalKey<V>) -> Result<EncryptedToken<V, M, F>, PasetoError> {
@@ -215,7 +227,12 @@ impl<V: version::Version, M: Payload, F: Footer> DecryptedToken<V, M, F> {
     }
 }
 
-impl<V: version::Version, M: Payload, F: Footer> SignedToken<V, M, F> {
+impl<V, M, F> SignedToken<V, M, F>
+where
+    V: version::UnsealingVersion<Public>,
+    M: Payload,
+    F: Footer,
+{
     /// Try to verify the token signature
     #[inline(always)]
     pub fn verify(
@@ -238,7 +255,12 @@ impl<V: version::Version, M: Payload, F: Footer> SignedToken<V, M, F> {
     }
 }
 
-impl<V: version::Version, M: Payload, F: Footer> VerifiedToken<V, M, F> {
+impl<V, M, F> VerifiedToken<V, M, F>
+where
+    V: version::SealingVersion<Public>,
+    M: Payload,
+    F: Footer,
+{
     /// Sign the token
     #[inline(always)]
     pub fn sign(self, key: &SecretKey<V>) -> Result<SignedToken<V, M, F>, PasetoError> {

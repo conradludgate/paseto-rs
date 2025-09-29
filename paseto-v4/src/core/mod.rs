@@ -4,13 +4,13 @@ mod pke;
 mod public;
 mod pw_wrap;
 
-use generic_array::typenum::{IsLessOrEqual, LeEq, NonZero, U32, U64};
+use generic_array::typenum::{IsLessOrEqual, LeEq, NonZero, U64};
 use generic_array::{ArrayLength, GenericArray};
 
 pub struct V4;
 
 #[derive(Clone)]
-pub struct LocalKey(GenericArray<u8, U32>);
+pub struct LocalKey([u8; 32]);
 
 pub struct SecretKey(
     ed25519_dalek::SecretKey,

@@ -1,7 +1,7 @@
 use libtest_mimic::{Arguments, Failed, Trial};
 use paseto_core::tokens::{DecryptedToken, EncryptedToken, SignedToken, VerifiedToken};
 use paseto_core::validation::NoValidation;
-use paseto_core::version::Version;
+use paseto_core::version::{Local, Public, SealingVersion, Version};
 use paseto_core::{LocalKey, PublicKey, SecretKey};
 use paseto_json::Json;
 use paseto_test::{Bool, TestFile, read_test};
@@ -33,8 +33,9 @@ struct PasetoTest<V: Version> {
     result: TestResult,
 }
 
-impl<V: Version> PasetoTest<V>
+impl<V> PasetoTest<V>
 where
+    V: SealingVersion<Local> + SealingVersion<Public>,
     V::LocalKey: Send,
     V::PublicKey: Send,
     V::SecretKey: Send,

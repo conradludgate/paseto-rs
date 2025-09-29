@@ -1,7 +1,7 @@
 use aws_lc_rs::digest::{self, Digest, SHA384};
 use aws_lc_rs::rand::{SecureRandom, SystemRandom};
 use paseto_core::PasetoError;
-use paseto_core::key::{KeyKind, SealingKey, UnsealingKey};
+use paseto_core::key::KeyKind;
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
 use paseto_core::version::{Marker, Public, Secret};
 
@@ -36,12 +36,8 @@ impl KeyKind for SecretKey {
     }
 }
 
-impl SealingKey<Public> for SecretKey {
-    fn unsealing_key(&self) -> PublicKey {
-        PublicKey(self.0.verifying_key())
-    }
-
-    fn random() -> Result<Self, PasetoError> {
+impl SecretKey {
+    pub(crate) fn random() -> Result<Self, PasetoError> {
         let mut bytes = [0; 48];
         loop {
             SystemRandom::new()
@@ -53,35 +49,45 @@ impl SealingKey<Public> for SecretKey {
             }
         }
     }
+}
+
+impl paseto_core::version::SealingVersion<Public> for V3 {
+    fn unsealing_key(key: &crate::SecretKey) -> crate::PublicKey {
+        crate::PublicKey::from_inner(PublicKey(key.as_inner().0.verifying_key()))
+    }
+
+    fn random() -> Result<crate::SecretKey, PasetoError> {
+        SecretKey::random().map(crate::SecretKey::from_inner)
+    }
 
     fn nonce() -> Result<Vec<u8>, PasetoError> {
         Ok(Vec::with_capacity(96))
     }
 
     fn dangerous_seal_with_nonce(
-        &self,
+        key: &crate::SecretKey,
         encoding: &'static str,
         mut payload: Vec<u8>,
         footer: &[u8],
         aad: &[u8],
     ) -> Result<Vec<u8>, PasetoError> {
         let digest = preauth_public(
-            &self.0.compressed_pub_key(),
+            &key.as_inner().0.compressed_pub_key(),
             encoding,
             &payload,
             footer,
             aad,
         );
-        let signature = self.0.sign(digest.as_ref())?;
+        let signature = key.as_inner().0.sign(digest.as_ref())?;
         signature.append_to_vec(&mut payload)?;
 
         Ok(payload)
     }
 }
 
-impl UnsealingKey<Public> for PublicKey {
+impl paseto_core::version::UnsealingVersion<Public> for V3 {
     fn unseal<'a>(
-        &self,
+        key: &crate::PublicKey,
         encoding: &'static str,
         payload: &'a mut [u8],
         footer: &[u8],
@@ -95,13 +101,14 @@ impl UnsealingKey<Public> for PublicKey {
         let (cleartext, tag) = payload.split_at(len - 96);
         let signature = Signature::from_bytes(tag).map_err(|_| PasetoError::InvalidToken)?;
         let digest = preauth_public(
-            &self.0.compressed_pub_key(),
+            &key.as_inner().0.compressed_pub_key(),
             encoding,
             cleartext,
             footer,
             aad,
         );
-        self.0
+        key.as_inner()
+            .0
             .verify(digest.as_ref(), &signature)
             .map_err(|_| PasetoError::CryptoError)?;
 

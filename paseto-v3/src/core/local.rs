@@ -7,7 +7,7 @@ use generic_array::typenum::U48;
 use generic_array::{ArrayLength, GenericArray};
 use hmac::Mac;
 use paseto_core::PasetoError;
-use paseto_core::key::{KeyKind, SealingKey, UnsealingKey};
+use paseto_core::key::KeyKind;
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
 use paseto_core::version::{Local, Marker};
 
@@ -42,15 +42,15 @@ impl LocalKey {
     }
 }
 
-impl SealingKey<Local> for LocalKey {
-    fn unsealing_key(&self) -> Self {
-        Self(self.0)
+impl paseto_core::version::SealingVersion<Local> for V3 {
+    fn unsealing_key(key: &crate::LocalKey) -> crate::LocalKey {
+        crate::LocalKey::from_inner(LocalKey(key.as_inner().0))
     }
 
-    fn random() -> Result<Self, PasetoError> {
+    fn random() -> Result<crate::LocalKey, PasetoError> {
         let mut bytes = [0; 32];
         getrandom::fill(&mut bytes).map_err(|_| PasetoError::CryptoError)?;
-        Ok(Self(bytes))
+        Ok(crate::LocalKey::from_inner(LocalKey(bytes)))
     }
 
     fn nonce() -> Result<Vec<u8>, PasetoError> {
@@ -63,7 +63,7 @@ impl SealingKey<Local> for LocalKey {
     }
 
     fn dangerous_seal_with_nonce(
-        &self,
+        key: &crate::LocalKey,
         encoding: &'static str,
         mut payload: Vec<u8>,
         footer: &[u8],
@@ -73,7 +73,7 @@ impl SealingKey<Local> for LocalKey {
             .split_first_chunk_mut::<32>()
             .ok_or(PasetoError::InvalidToken)?;
 
-        let (mut cipher, mut mac) = self.keys(nonce);
+        let (mut cipher, mut mac) = key.as_inner().keys(nonce);
         cipher.apply_keystream(ciphertext);
         preauth_local(&mut mac, encoding, nonce, ciphertext, footer, aad);
         payload.extend_from_slice(&mac.finalize().into_bytes());
@@ -82,9 +82,9 @@ impl SealingKey<Local> for LocalKey {
     }
 }
 
-impl UnsealingKey<Local> for LocalKey {
+impl paseto_core::version::UnsealingVersion<Local> for V3 {
     fn unseal<'a>(
-        &self,
+        key: &crate::LocalKey,
         encoding: &'static str,
         payload: &'a mut [u8],
         footer: &[u8],
@@ -102,7 +102,7 @@ impl UnsealingKey<Local> for LocalKey {
             .split_first_chunk_mut::<32>()
             .ok_or(PasetoError::InvalidToken)?;
 
-        let (mut cipher, mut mac) = self.keys(nonce);
+        let (mut cipher, mut mac) = key.as_inner().keys(nonce);
         preauth_local(&mut mac, encoding, nonce, ciphertext, footer, aad);
         mac.verify_slice(tag)
             .map_err(|_| PasetoError::CryptoError)?;

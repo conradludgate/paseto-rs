@@ -5,7 +5,7 @@ use generic_array::GenericArray;
 use p384::ecdsa::signature::{DigestSigner, DigestVerifier};
 use p384::ecdsa::{Signature, SigningKey, VerifyingKey};
 use paseto_core::PasetoError;
-use paseto_core::key::{KeyKind, SealingKey, UnsealingKey};
+use paseto_core::key::KeyKind;
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
 use paseto_core::version::{Marker, Public, Secret};
 use sha2::{Digest, Sha384};
@@ -46,12 +46,8 @@ impl KeyKind for SecretKey {
     }
 }
 
-impl SealingKey<Public> for SecretKey {
-    fn unsealing_key(&self) -> PublicKey {
-        PublicKey(*self.0.verifying_key())
-    }
-
-    fn random() -> Result<Self, PasetoError> {
+impl SecretKey {
+    pub(crate) fn random() -> Result<Self, PasetoError> {
         let mut bytes = GenericArray::default();
         loop {
             getrandom::fill(&mut bytes).map_err(|_| PasetoError::CryptoError)?;
@@ -61,20 +57,36 @@ impl SealingKey<Public> for SecretKey {
             }
         }
     }
+}
+
+impl paseto_core::version::SealingVersion<Public> for V3 {
+    fn unsealing_key(key: &crate::SecretKey) -> crate::PublicKey {
+        crate::PublicKey::from_inner(PublicKey(*key.as_inner().0.verifying_key()))
+    }
+
+    fn random() -> Result<crate::SecretKey, PasetoError> {
+        SecretKey::random().map(crate::SecretKey::from_inner)
+    }
 
     fn nonce() -> Result<Vec<u8>, PasetoError> {
         Ok(Vec::with_capacity(96))
     }
 
     fn dangerous_seal_with_nonce(
-        &self,
+        key: &crate::SecretKey,
         encoding: &'static str,
         mut payload: Vec<u8>,
         footer: &[u8],
         aad: &[u8],
     ) -> Result<Vec<u8>, PasetoError> {
-        let digest = preauth_public(self.0.verifying_key(), encoding, &payload, footer, aad);
-        let signature: Signature = self.0.sign_digest(digest);
+        let digest = preauth_public(
+            key.as_inner().0.verifying_key(),
+            encoding,
+            &payload,
+            footer,
+            aad,
+        );
+        let signature: Signature = key.as_inner().0.sign_digest(digest);
         let signature = signature.normalize_s().unwrap_or(signature);
 
         payload.extend_from_slice(&signature.to_bytes());
@@ -83,9 +95,9 @@ impl SealingKey<Public> for SecretKey {
     }
 }
 
-impl UnsealingKey<Public> for PublicKey {
+impl paseto_core::version::UnsealingVersion<Public> for V3 {
     fn unseal<'a>(
-        &self,
+        key: &crate::PublicKey,
         encoding: &'static str,
         payload: &'a mut [u8],
         footer: &[u8],
@@ -97,14 +109,13 @@ impl UnsealingKey<Public> for PublicKey {
 
         let signature =
             Signature::from_bytes(tag[..].into()).map_err(|_| PasetoError::InvalidToken)?;
-        let digest = preauth_public(&self.0, encoding, cleartext, footer, aad);
-        DigestVerifier::<Sha384, Signature>::verify_digest(&self.0, digest, &signature)
+        let digest = preauth_public(&key.as_inner().0, encoding, cleartext, footer, aad);
+        DigestVerifier::<Sha384, Signature>::verify_digest(&key.as_inner().0, digest, &signature)
             .map_err(|_| PasetoError::CryptoError)?;
 
         Ok(cleartext)
     }
 }
-
 fn preauth_public(
     key: &VerifyingKey,
     encoding: &'static str,

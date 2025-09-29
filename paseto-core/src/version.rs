@@ -1,19 +1,51 @@
-use crate::key::{KeyKind, SealingKey, UnsealingKey};
+use alloc::vec::Vec;
+
+use crate::PasetoError;
+use crate::key::{Key, KeyKind};
 use crate::sealed::Sealed;
 
 /// An implementation of the PASETO cryptographic schemes.
-pub trait Version: 'static {
+pub trait Version: Sized + 'static {
     /// Header for PASETO
     const HEADER: &'static str;
 
     /// A symmetric key used to encrypt and decrypt tokens.
-    type LocalKey: SealingKey<Local>
-        + UnsealingKey<Local>
-        + KeyKind<Version = Self, KeyType = Local>;
+    type LocalKey: KeyKind<Version = Self, KeyType = Local>;
     /// An asymmetric key used to validate token signatures.
-    type PublicKey: UnsealingKey<Public> + KeyKind<Version = Self, KeyType = Public>;
+    type PublicKey: KeyKind<Version = Self, KeyType = Public>;
     /// An asymmetric key used to create token signatures.
-    type SecretKey: SealingKey<Public> + KeyKind<Version = Self, KeyType = Secret>;
+    type SecretKey: KeyKind<Version = Self, KeyType = Secret>;
+}
+
+pub trait UnsealingVersion<P: Purpose>: Version {
+    /// Do not call this method directly. Use [`SealedToken::unseal`](crate::tokens::SealedToken::unseal) instead.
+    fn unseal<'a>(
+        key: &Key<Self, P::UnsealingMarker>,
+        encoding: &'static str,
+        payload: &'a mut [u8],
+        footer: &[u8],
+        aad: &[u8],
+    ) -> Result<&'a [u8], PasetoError>;
+}
+
+pub trait SealingVersion<P: Purpose>: UnsealingVersion<P> {
+    /// Generate the key that can unseal the tokens this key will seal.
+    fn unsealing_key(key: &Key<Self, P::SealingMarker>) -> Key<Self, P::UnsealingMarker>;
+
+    /// Generate a random key
+    fn random() -> Result<Key<Self, P::SealingMarker>, PasetoError>;
+
+    /// Do not call this method directly.
+    fn nonce() -> Result<Vec<u8>, PasetoError>;
+
+    /// Do not call this method directly. Use [`UnsealedToken::seal`](crate::tokens::UnsealedToken::seal) instead.
+    fn dangerous_seal_with_nonce(
+        key: &Key<Self, P::SealingMarker>,
+        encoding: &'static str,
+        payload: Vec<u8>,
+        footer: &[u8],
+        aad: &[u8],
+    ) -> Result<Vec<u8>, PasetoError>;
 }
 
 /// Marks a key as secret
@@ -45,19 +77,10 @@ pub trait SealingMarker: Marker {
 
     const PIE_WRAP_HEADER: &'static str;
     const PW_WRAP_HEADER: &'static str;
-
-    type SealingKey<V: Version>: KeyKind<Version = V, KeyType = Self>
-        + SealingKey<Self::Purpose, Version = V, KeyType = Self>;
-
-    fn coerce_types<V: Version>(inner: &Self::Key<V>) -> &Self::SealingKey<V>;
 }
 
 pub trait UnsealingMarker: Marker {
     type Purpose: Purpose;
-    type UnsealingKey<V: Version>: KeyKind<Version = V, KeyType = Self>
-        + UnsealingKey<Self::Purpose, Version = V, KeyType = Self>;
-
-    fn coerce_types<V: Version>(inner: &Self::Key<V>) -> &Self::UnsealingKey<V>;
 }
 
 impl Marker for Secret {
@@ -72,12 +95,6 @@ impl SealingMarker for Secret {
 
     const PIE_WRAP_HEADER: &'static str = ".secret-wrap.pie.";
     const PW_WRAP_HEADER: &'static str = ".secret-pw.";
-
-    type SealingKey<V: Version> = V::SecretKey;
-
-    fn coerce_types<V: Version>(inner: &Self::Key<V>) -> &Self::SealingKey<V> {
-        inner
-    }
 }
 
 impl Marker for Public {
@@ -89,12 +106,6 @@ impl Marker for Public {
 
 impl UnsealingMarker for Public {
     type Purpose = Public;
-
-    type UnsealingKey<V: Version> = V::PublicKey;
-
-    fn coerce_types<V: Version>(inner: &Self::Key<V>) -> &Self::UnsealingKey<V> {
-        inner
-    }
 }
 
 impl Marker for Local {
@@ -109,22 +120,10 @@ impl SealingMarker for Local {
 
     const PIE_WRAP_HEADER: &'static str = ".local-wrap.pie.";
     const PW_WRAP_HEADER: &'static str = ".local-pw.";
-
-    type SealingKey<V: Version> = V::LocalKey;
-
-    fn coerce_types<V: Version>(inner: &Self::Key<V>) -> &Self::SealingKey<V> {
-        inner
-    }
 }
 
 impl UnsealingMarker for Local {
     type Purpose = Local;
-
-    type UnsealingKey<V: Version> = V::LocalKey;
-
-    fn coerce_types<V: Version>(inner: &Self::Key<V>) -> &Self::UnsealingKey<V> {
-        inner
-    }
 }
 
 /// A marker for [`Public`] and [`Local`], used for token encodings.

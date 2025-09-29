@@ -4,7 +4,6 @@ use aws_lc_rs::digest::{self, SHA384};
 use aws_lc_rs::hmac::{self, HMAC_SHA384};
 use aws_lc_rs::iv::FixedLength;
 use paseto_core::PasetoError;
-use paseto_core::key::SealingKey;
 use paseto_core::paserk::PkeVersion;
 
 use super::{Cipher, LocalKey, PublicKey, SecretKey, V3};

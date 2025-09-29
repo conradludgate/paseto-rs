@@ -122,6 +122,6 @@ impl PkeVersion for V4 {
 
         chacha20::XChaCha20::new(&ek, &n).apply_keystream(edk);
 
-        Ok(LocalKey((*edk).into()))
+        Ok(LocalKey(*edk))
     }
 }
