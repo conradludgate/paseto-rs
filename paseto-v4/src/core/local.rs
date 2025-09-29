@@ -136,5 +136,5 @@ fn preauth_local(
             &[aad],
         ],
         PreAuthEncodeDigest(mac),
-    )
+    );
 }

@@ -19,7 +19,7 @@ fn wrap_keys(
         32,
         pass,
         &prefix.salt,
-        prefix.params.time.get() as u64,
+        u64::from(prefix.params.time.get()),
         usize::try_from(prefix.params.mem.get()).map_err(|_| PasetoError::InvalidKey)?,
         ALG_ARGON2ID13,
     )

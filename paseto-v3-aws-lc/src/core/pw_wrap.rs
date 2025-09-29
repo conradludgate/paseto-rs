@@ -54,7 +54,7 @@ impl Default for Params {
     fn default() -> Self {
         const {
             Self {
-                iterations: big_endian::U32::new(100000),
+                iterations: big_endian::U32::new(100_000),
             }
         }
     }

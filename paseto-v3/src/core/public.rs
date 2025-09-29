@@ -54,9 +54,8 @@ impl SecretKey {
         let mut bytes = generic_array::GenericArray::default();
         loop {
             getrandom::fill(&mut bytes).map_err(|_| PasetoError::CryptoError)?;
-            match p384::ecdsa::SigningKey::from_bytes(&bytes).map(Self) {
-                Err(_) => continue,
-                Ok(key) => break Ok(key),
+            if let Ok(key) = p384::ecdsa::SigningKey::from_bytes(&bytes).map(Self) {
+                break Ok(key);
             }
         }
     }
@@ -129,7 +128,7 @@ fn preauth_public(
     struct Context(sha2::Sha384);
     impl WriteBytes for Context {
         fn write(&mut self, slice: &[u8]) {
-            self.0.update(slice)
+            self.0.update(slice);
         }
     }
 

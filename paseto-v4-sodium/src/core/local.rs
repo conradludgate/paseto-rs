@@ -122,9 +122,9 @@ impl paseto_core::version::UnsealingVersion<Local> for V4 {
 }
 
 struct PreAuthEncodeDigest<'a>(pub &'a mut crypto_generichash::State);
-impl<'a> paseto_core::pae::WriteBytes for PreAuthEncodeDigest<'a> {
+impl paseto_core::pae::WriteBytes for PreAuthEncodeDigest<'_> {
     fn write(&mut self, slice: &[u8]) {
-        self.0.update(slice)
+        self.0.update(slice);
     }
 }
 
@@ -150,5 +150,5 @@ fn preauth_local(
             &[aad],
         ],
         PreAuthEncodeDigest(mac),
-    )
+    );
 }

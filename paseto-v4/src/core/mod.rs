@@ -67,9 +67,9 @@ impl paseto_core::paserk::IdVersion for V4 {
 #[cfg(any(feature = "decrypting", feature = "signing"))]
 struct PreAuthEncodeDigest<'a, M: digest::Update>(pub &'a mut M);
 #[cfg(any(feature = "decrypting", feature = "signing"))]
-impl<'a, M: digest::Update> paseto_core::pae::WriteBytes for PreAuthEncodeDigest<'a, M> {
+impl<M: digest::Update> paseto_core::pae::WriteBytes for PreAuthEncodeDigest<'_, M> {
     fn write(&mut self, slice: &[u8]) {
-        self.0.update(slice)
+        self.0.update(slice);
     }
 }
 

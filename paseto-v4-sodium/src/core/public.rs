@@ -55,9 +55,8 @@ impl paseto_core::version::SealingVersion<Public> for V4 {
         let mut secret_key = [0; 32];
         loop {
             random::fill_bytes(&mut secret_key);
-            match crypto_sign::keypair_from_seed(&secret_key) {
-                Ok(key) => break Ok(SecretKey(key.secret_key)),
-                Err(_) => continue,
+            if let Ok(key) = crypto_sign::keypair_from_seed(&secret_key) {
+                break Ok(SecretKey(key.secret_key));
             }
         }
     }

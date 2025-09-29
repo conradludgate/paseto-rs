@@ -14,7 +14,7 @@ use super::V3;
 fn wrap_keys(
     pass: &[u8],
     prefix: &Prefix,
-) -> Result<(ctr::Ctr64BE<aes::Aes256>, hmac::Hmac<sha2::Sha384>), PasetoError> {
+) -> (ctr::Ctr64BE<aes::Aes256>, hmac::Hmac<sha2::Sha384>) {
     use cipher::KeyIvInit;
 
     let key = pbkdf2::pbkdf2_array::<hmac::Hmac<sha2::Sha384>, 32>(
@@ -29,7 +29,7 @@ fn wrap_keys(
 
     let cipher = ctr::Ctr64BE::<aes::Aes256>::new(&ek, (&prefix.nonce).into());
     let mac = hmac::Hmac::new_from_slice(&ak).expect("key should be valid");
-    Ok((cipher, mac))
+    (cipher, mac)
 }
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable, Unaligned)]
@@ -56,7 +56,7 @@ impl Default for Params {
     fn default() -> Self {
         const {
             Self {
-                iterations: big_endian::U32::new(100000),
+                iterations: big_endian::U32::new(100_000),
             }
         }
     }
@@ -80,7 +80,7 @@ impl PwWrapVersion for V3 {
         getrandom::fill(&mut prefix.salt).map_err(|_| PasetoError::CryptoError)?;
         getrandom::fill(&mut prefix.nonce).map_err(|_| PasetoError::CryptoError)?;
 
-        let (mut cipher, mut mac) = wrap_keys(pass, prefix)?;
+        let (mut cipher, mut mac) = wrap_keys(pass, prefix);
         cipher.apply_keystream(&mut key_data);
         auth(&mut mac, header, prefix, &key_data);
 
@@ -104,7 +104,7 @@ impl PwWrapVersion for V3 {
         let (ciphertext, suffix) =
             Suffix::mut_from_suffix(ciphertext).map_err(|_| PasetoError::InvalidKey)?;
 
-        let (mut cipher, mut mac) = wrap_keys(pass, prefix)?;
+        let (mut cipher, mut mac) = wrap_keys(pass, prefix);
         auth(&mut mac, header, prefix, ciphertext);
         mac.verify((&suffix.tag).into())
             .map_err(|_| PasetoError::CryptoError)?;

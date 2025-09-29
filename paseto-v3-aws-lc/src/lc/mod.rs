@@ -40,15 +40,18 @@ impl Clone for SigningKey {
 
         let mut key = LcPtr::new(unsafe { EC_KEY_new() }).unwrap();
 
-        if unsafe { EC_KEY_set_group(*key.as_mut(), *g) } != 1 {
-            panic!("unable to clone signing key");
-        }
-        if unsafe { EC_KEY_set_private_key(*key.as_mut(), *bn) } != 1 {
-            panic!("unable to clone signing key");
-        }
-        if unsafe { EC_KEY_set_public_key(*key.as_mut(), *pk) } != 1 {
-            panic!("unable to clone signing key");
-        }
+        assert!(
+            unsafe { EC_KEY_set_group(*key.as_mut(), *g) } == 1,
+            "unable to clone signing key"
+        );
+        assert!(
+            unsafe { EC_KEY_set_private_key(*key.as_mut(), *bn) } == 1,
+            "unable to clone signing key"
+        );
+        assert!(
+            unsafe { EC_KEY_set_public_key(*key.as_mut(), *pk) } == 1,
+            "unable to clone signing key"
+        );
 
         Self { key }
     }
@@ -94,14 +97,13 @@ impl SigningKey {
             .unwrap();
 
         let key_len = unsafe { BN_num_bytes(*key) } as usize;
-        if key_len > 48 {
-            panic!("invalid key_len");
-        }
+        assert!(key_len <= 48, "invalid key_len");
 
         let mut key_bytes = [0; 48];
-        if unsafe { BN_bn2bin(*key, key_bytes[48 - key_len..].as_mut_ptr()) } != key_len {
-            panic!("invalid key_len");
-        }
+        assert!(
+            unsafe { BN_bn2bin(*key, key_bytes[48 - key_len..].as_mut_ptr()) } == key_len,
+            "invalid key_len"
+        );
 
         key_bytes
     }
@@ -143,7 +145,7 @@ impl SigningKey {
                 digest.as_ptr(),
                 digest.len(),
                 sig.as_mut_ptr(),
-                &mut sig_len,
+                &raw mut sig_len,
                 *key,
             )
         };
@@ -210,7 +212,7 @@ impl Signature {
 
         let mut r = null();
         let mut s = null();
-        unsafe { ECDSA_SIG_get0(*sig.as_const(), &mut r, &mut s) };
+        unsafe { ECDSA_SIG_get0(*sig.as_const(), &raw mut r, &raw mut s) };
 
         if unsafe { BN_num_bytes(r) } != 48 || unsafe { BN_num_bytes(s) } != 48 {
             return Err(PasetoError::CryptoError);
@@ -294,7 +296,9 @@ impl VerifyingKey {
     pub fn verify(&self, digest: &[u8], signature: &Signature) -> Result<(), PasetoError> {
         let mut sig_len = 0;
         let mut sig = null_mut();
-        if unsafe { ECDSA_SIG_to_bytes(&mut sig, &mut sig_len, *signature.sig.as_const()) } != 1 {
+        if unsafe { ECDSA_SIG_to_bytes(&raw mut sig, &raw mut sig_len, *signature.sig.as_const()) }
+            != 1
+        {
             return Err(PasetoError::CryptoError);
         }
         let sig = LcPtr::new(sig)?;
@@ -333,9 +337,7 @@ pub fn compressed_pub_key(p: ConstPointer<EC_POINT>) -> [u8; 49] {
         )
     };
 
-    if len != 49 {
-        panic!("compressed point should be 49 bytes");
-    }
+    assert!(len == 49, "compressed point should be 49 bytes");
 
     out
 }

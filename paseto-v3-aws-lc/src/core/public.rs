@@ -44,7 +44,7 @@ impl SecretKey {
                 .fill(&mut bytes)
                 .map_err(|_| PasetoError::CryptoError)?;
             match SigningKey::from_sec1_bytes(&bytes).map(Self) {
-                Err(PasetoError::InvalidKey) => continue,
+                Err(PasetoError::InvalidKey) => {}
                 res => break res,
             }
         }
@@ -120,7 +120,7 @@ fn preauth_public(
     struct Context(digest::Context);
     impl WriteBytes for Context {
         fn write(&mut self, slice: &[u8]) {
-            self.0.update(slice)
+            self.0.update(slice);
         }
     }
 

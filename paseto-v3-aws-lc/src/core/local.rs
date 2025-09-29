@@ -146,7 +146,7 @@ fn preauth_local(
     struct Context<'a>(&'a mut hmac::Context);
     impl WriteBytes for Context<'_> {
         fn write(&mut self, slice: &[u8]) {
-            self.0.update(slice)
+            self.0.update(slice);
         }
     }
 

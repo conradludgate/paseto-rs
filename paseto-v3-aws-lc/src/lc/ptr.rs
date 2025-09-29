@@ -126,6 +126,13 @@ pub(crate) struct ConstPointer<'a, T> {
     _lifetime: PhantomData<&'a T>,
 }
 
+impl<T> Copy for ConstPointer<'_, T> {}
+impl<T> Clone for ConstPointer<'_, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
 impl<T> ConstPointer<'static, T> {
     pub unsafe fn new_static(ptr: *const T) -> Result<Self, PasetoError> {
         if ptr.is_null() {
