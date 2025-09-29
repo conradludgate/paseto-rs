@@ -1,5 +1,4 @@
 use paseto_core::key::Key;
-use paseto_core::paserk::PaserkVersion;
 use paseto_core::version::{Marker, Version};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
@@ -65,6 +64,6 @@ pub fn deserialize_key<'de, D: Deserializer<'de>, V: Version, K: Marker>(
     Key::<V, K>::from_raw_bytes(&deserialize_hex(d)?).map_err(serde::de::Error::custom)
 }
 
-pub fn eq_keys<V: PaserkVersion, K: Marker>(k1: &Key<V, K>, k2: &Key<V, K>) -> bool {
+pub fn eq_keys<V: Version, K: Marker>(k1: &Key<V, K>, k2: &Key<V, K>) -> bool {
     k1.expose_key() == k2.expose_key()
 }

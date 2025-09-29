@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+#[cfg(feature = "encrypting")]
 use alloc::vec::Vec;
 
 use blake2::Blake2bMac;
@@ -44,6 +45,7 @@ impl LocalKey {
     }
 }
 
+#[cfg(feature = "encrypting")]
 impl paseto_core::version::SealingVersion<Local> for V4 {
     fn unsealing_key(key: &crate::LocalKey) -> crate::LocalKey {
         crate::LocalKey::from_inner(LocalKey(key.as_inner().0))

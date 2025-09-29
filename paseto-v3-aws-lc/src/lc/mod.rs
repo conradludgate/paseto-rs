@@ -1,3 +1,5 @@
+#![allow(unsafe_code)]
+
 mod ptr;
 
 use std::ptr::{null, null_mut};

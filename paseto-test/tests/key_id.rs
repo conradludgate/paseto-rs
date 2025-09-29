@@ -1,6 +1,6 @@
 use libtest_mimic::{Arguments, Failed, Trial};
 use paseto_core::key::Key;
-use paseto_core::paserk::{KeyId, PaserkVersion};
+use paseto_core::paserk::{IdVersion, KeyId};
 use paseto_core::version::{Local, Marker, Public, Secret};
 use paseto_test::{Bool, TestFile, read_test};
 use serde::Deserialize;
@@ -20,7 +20,7 @@ fn main() {
 
 #[derive(Deserialize)]
 #[serde(untagged, bound = "")]
-enum IdTest<V: PaserkVersion, K: Marker> {
+enum IdTest<V: IdVersion, K: Marker> {
     #[serde(rename_all = "kebab-case")]
     Success {
         #[expect(unused)]
@@ -41,7 +41,7 @@ enum IdTest<V: PaserkVersion, K: Marker> {
     },
 }
 
-fn add_all_tests<V: PaserkVersion>(name: &str, tests: &mut Vec<Trial>)
+fn add_all_tests<V: IdVersion>(name: &str, tests: &mut Vec<Trial>)
 where
     V::LocalKey: Send + 'static,
     V::PublicKey: Send + 'static,
@@ -52,7 +52,7 @@ where
     IdTest::<V, Public>::add_tests(name, tests);
 }
 
-impl<V: PaserkVersion, K: Marker> IdTest<V, K>
+impl<V: IdVersion, K: Marker> IdTest<V, K>
 where
     K::Key<V>: Send + 'static,
 {

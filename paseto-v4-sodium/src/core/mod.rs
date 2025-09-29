@@ -19,18 +19,17 @@ pub struct LocalKey([u8; 32]);
 
 impl paseto_core::version::Version for V4 {
     const HEADER: &'static str = "v4";
+    const PASERK_HEADER: &'static str = "k4";
 
     type LocalKey = LocalKey;
     type PublicKey = PublicKey;
     type SecretKey = SecretKey;
 }
 
-impl paseto_core::paserk::PaserkVersion for V4 {
-    const PASERK_HEADER: &'static str = "k4";
-
+impl paseto_core::paserk::IdVersion for V4 {
     fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33] {
         let mut ctx = crypto_generichash::State::new(None, 33).expect("hash size should be valid");
-        ctx.update(Self::PASERK_HEADER.as_bytes());
+        ctx.update(b"k4");
         ctx.update(key_header.as_bytes());
         ctx.update(key_data);
         ctx.finalize().try_into().expect("hash should be 33 bytes")

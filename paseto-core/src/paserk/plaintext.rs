@@ -4,18 +4,17 @@ use core::marker::PhantomData;
 
 use crate::PasetoError;
 use crate::key::{Key, KeyKind};
-use crate::paserk::PaserkVersion;
-use crate::version::Marker;
+use crate::version::{Marker, Version};
 
 /// A plaintext encoding of a key.
 ///
 /// Be advised that this encoding has no extra security, so it is not safe to transport as is.
-pub struct KeyText<V: PaserkVersion, K: Marker> {
+pub struct KeyText<V: Version, K: Marker> {
     data: Box<[u8]>,
     _key: PhantomData<(V, K)>,
 }
 
-impl<V: PaserkVersion, K: Marker> Key<V, K> {
+impl<V: Version, K: Marker> Key<V, K> {
     pub fn expose_key(&self) -> KeyText<V, K> {
         KeyText {
             data: self.0.encode(),
@@ -24,39 +23,39 @@ impl<V: PaserkVersion, K: Marker> Key<V, K> {
     }
 }
 
-impl<V: PaserkVersion, K: Marker> PartialEq for KeyText<V, K> {
+impl<V: Version, K: Marker> PartialEq for KeyText<V, K> {
     fn eq(&self, other: &Self) -> bool {
         self.data == other.data
     }
 }
 
-impl<V: PaserkVersion, K: Marker> PartialOrd for KeyText<V, K> {
+impl<V: Version, K: Marker> PartialOrd for KeyText<V, K> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<V: PaserkVersion, K: Marker> Eq for KeyText<V, K> {}
+impl<V: Version, K: Marker> Eq for KeyText<V, K> {}
 
-impl<V: PaserkVersion, K: Marker> Ord for KeyText<V, K> {
+impl<V: Version, K: Marker> Ord for KeyText<V, K> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.data.cmp(&other.data)
     }
 }
 
-impl<V: PaserkVersion, K: Marker> core::hash::Hash for KeyText<V, K> {
+impl<V: Version, K: Marker> core::hash::Hash for KeyText<V, K> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.data.hash(state);
     }
 }
 
-impl<V: PaserkVersion, K: Marker> KeyText<V, K> {
+impl<V: Version, K: Marker> KeyText<V, K> {
     pub fn decode(&self) -> Result<Key<V, K>, PasetoError> {
         <K::Key<V>>::decode(&self.data).map(Key)
     }
 }
 
-impl<V: PaserkVersion, K: Marker> fmt::Display for KeyText<V, K> {
+impl<V: Version, K: Marker> fmt::Display for KeyText<V, K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(V::PASERK_HEADER)?;
         f.write_str(K::HEADER)?;
@@ -64,7 +63,7 @@ impl<V: PaserkVersion, K: Marker> fmt::Display for KeyText<V, K> {
     }
 }
 
-impl<V: PaserkVersion, K: Marker> core::str::FromStr for KeyText<V, K> {
+impl<V: Version, K: Marker> core::str::FromStr for KeyText<V, K> {
     type Err = PasetoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -85,7 +84,7 @@ impl<V: PaserkVersion, K: Marker> core::str::FromStr for KeyText<V, K> {
 serde_str!(
     impl<V, K> KeyText<V, K>
     where
-        V: PaserkVersion,
+        V: Version,
         K: Marker,
     {
         fn expecting() {

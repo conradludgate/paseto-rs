@@ -18,16 +18,12 @@ pub use pw_wrap::PasswordWrappedKey;
 use crate::PasetoError;
 use crate::version::Version;
 
-/// An implementation of the PASERK cryptographic schemes.
-pub trait PaserkVersion: Version {
-    /// Header for PASERK
-    const PASERK_HEADER: &'static str;
-
+pub trait IdVersion: Version {
     /// How to hash some keydata for creating [`KeyId`]
     fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33];
 }
 
-pub trait PieWrapVersion: PaserkVersion {
+pub trait PieWrapVersion: Version {
     fn pie_wrap_key(
         header: &'static str,
         wrapping_key: &Self::LocalKey,
@@ -41,7 +37,7 @@ pub trait PieWrapVersion: PaserkVersion {
     ) -> Result<&'key [u8], PasetoError>;
 }
 
-pub trait PwWrapVersion: PaserkVersion {
+pub trait PwWrapVersion: Version {
     type Params: Default;
 
     fn pw_wrap_key(
@@ -60,7 +56,7 @@ pub trait PwWrapVersion: PaserkVersion {
     ) -> Result<&'key [u8], PasetoError>;
 }
 
-pub trait PkeVersion: PaserkVersion {
+pub trait PkeVersion: Version {
     fn seal_key(
         sealing_key: &Self::PublicKey,
         key: Self::LocalKey,

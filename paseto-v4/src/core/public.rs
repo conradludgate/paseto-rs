@@ -1,15 +1,21 @@
 use alloc::boxed::Box;
+#[cfg(feature = "signing")]
 use alloc::vec::Vec;
 
 use ed25519_dalek::Signature;
 use paseto_core::PasetoError;
 use paseto_core::key::KeyKind;
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
-use paseto_core::version::{Marker, Public, Secret};
+#[cfg(feature = "signing")]
+use paseto_core::version::Secret;
+use paseto_core::version::{Marker, Public};
 
-use super::{PreAuthEncodeDigest, PublicKey, SecretKey, V4};
+#[cfg(feature = "signing")]
+use super::{PreAuthEncodeDigest, SecretKey};
+use super::{PublicKey, V4};
 
-impl Clone for SecretKey {
+#[cfg(feature = "signing")]
+impl Clone for super::SecretKey {
     fn clone(&self) -> Self {
         let esk = ed25519_dalek::hazmat::ExpandedSecretKey {
             scalar: self.1.scalar,
@@ -34,6 +40,7 @@ impl KeyKind for PublicKey {
     }
 }
 
+#[cfg(feature = "signing")]
 impl KeyKind for SecretKey {
     type Version = V4;
     type KeyType = Secret;
@@ -64,6 +71,7 @@ impl KeyKind for SecretKey {
     }
 }
 
+#[cfg(feature = "signing")]
 impl paseto_core::version::SealingVersion<Public> for V4 {
     fn unsealing_key(key: &crate::SecretKey) -> crate::PublicKey {
         crate::PublicKey::from_inner(PublicKey((&key.as_inner().1).into()))
@@ -160,6 +168,7 @@ fn preauth_public(
     sv.0
 }
 
+#[cfg(feature = "signing")]
 fn preauth_secret(
     esk: &ed25519_dalek::hazmat::ExpandedSecretKey,
     encoding: &'static str,

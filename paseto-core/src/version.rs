@@ -8,6 +8,8 @@ use crate::sealed::Sealed;
 pub trait Version: Sized + 'static {
     /// Header for PASETO
     const HEADER: &'static str;
+    /// Header for PASERK
+    const PASERK_HEADER: &'static str = "k3";
 
     /// A symmetric key used to encrypt and decrypt tokens.
     type LocalKey: KeyKind<Version = Self, KeyType = Local>;

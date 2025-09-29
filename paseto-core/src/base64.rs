@@ -1,6 +1,7 @@
 // Code taken from base64ct.
 // Licensed from the RustCrypto developers under Apache-2.0.
 // <https://github.com/RustCrypto/formats/blob/master/base64ct/LICENSE-APACHE>
+#![allow(unsafe_code)]
 
 use alloc::vec::Vec;
 use core::fmt;

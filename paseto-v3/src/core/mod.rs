@@ -17,20 +17,19 @@ pub struct LocalKey([u8; 32]);
 
 impl paseto_core::version::Version for V3 {
     const HEADER: &'static str = "v3";
+    const PASERK_HEADER: &'static str = "k3";
 
     type LocalKey = LocalKey;
     type PublicKey = PublicKey;
     type SecretKey = SecretKey;
 }
 
-impl paseto_core::paserk::PaserkVersion for V3 {
-    const PASERK_HEADER: &'static str = "k3";
-
+impl paseto_core::paserk::IdVersion for V3 {
     fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33] {
         use sha2::{Digest, Sha384};
 
         let mut ctx = Sha384::new();
-        ctx.update(Self::PASERK_HEADER.as_bytes());
+        ctx.update(b"k3");
         ctx.update(key_header.as_bytes());
         ctx.update(key_data);
         let hash = ctx.finalize();

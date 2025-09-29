@@ -40,8 +40,8 @@
 //!     .and_then(ForSubject("conradludgate"));
 //! let verified_token = signed_token.verify(&public_key, &validation).unwrap();
 //! ```
-
 #![no_std]
+#![forbid(unsafe_code)]
 
 extern crate alloc;
 

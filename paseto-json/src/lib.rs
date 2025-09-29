@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use core::fmt;
 use std::error::Error;
 use std::io;

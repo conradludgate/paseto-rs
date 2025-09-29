@@ -1,8 +1,10 @@
 use alloc::boxed::Box;
+use core::convert::Infallible;
 use core::fmt;
+use core::marker::PhantomData;
 
 use crate::PasetoError;
-use crate::paserk::{KeyId, KeyText, PaserkVersion};
+use crate::paserk::{IdVersion, KeyId, KeyText};
 use crate::version::{Local, Marker, Public, SealingVersion, Secret, Version};
 
 /// Defines a PASERK key type
@@ -12,6 +14,21 @@ pub trait KeyKind: Sized {
 
     fn encode(&self) -> Box<[u8]>;
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError>;
+}
+
+pub struct Unimplemented<V: Version, K: Marker>(Infallible, PhantomData<(V, K)>);
+
+impl<V: Version, K: Marker> KeyKind for Unimplemented<V, K> {
+    type Version = V;
+    type KeyType = K;
+
+    fn encode(&self) -> Box<[u8]> {
+        match self.0 {}
+    }
+
+    fn decode(_: &[u8]) -> Result<Self, PasetoError> {
+        unimplemented!("Key type {}{} is not supported", V::HEADER, K::HEADER)
+    }
 }
 
 /// Generic key type.
@@ -71,20 +88,20 @@ impl<V: SealingVersion<Local>> LocalKey<V> {
     }
 }
 
-impl<V: PaserkVersion> fmt::Display for PublicKey<V> {
+impl<V: Version> fmt::Display for PublicKey<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.expose_key().fmt(f)
     }
 }
 
-impl<V: PaserkVersion, K: Marker> core::str::FromStr for Key<V, K> {
+impl<V: Version, K: Marker> core::str::FromStr for Key<V, K> {
     type Err = PasetoError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         KeyText::<V, K>::from_str(s).and_then(|k| k.decode())
     }
 }
 
-impl<V: PaserkVersion, K: Marker> Key<V, K> {
+impl<V: IdVersion, K: Marker> Key<V, K> {
     pub fn id(&self) -> KeyId<V, K> {
         KeyId::from(&self.expose_key())
     }

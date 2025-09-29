@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::paserk::{PaserkVersion, PkeVersion, SealedKey};
+use paseto_core::paserk::{PkeVersion, SealedKey};
 use paseto_core::{LocalKey, PublicKey, SecretKey};
 use paseto_test::{Bool, TestFile, eq_keys, read_test};
 use serde::Deserialize;
@@ -21,7 +21,7 @@ fn main() {
 
 #[derive(Deserialize)]
 #[serde(untagged, bound = "")]
-enum SealTest<V: PaserkVersion> {
+enum SealTest<V: PkeVersion> {
     #[serde(rename_all = "kebab-case")]
     Success {
         #[expect(unused)]

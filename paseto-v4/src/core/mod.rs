@@ -1,59 +1,84 @@
-mod local;
-mod pie_wrap;
-mod pke;
-mod public;
-mod pw_wrap;
+use paseto_core::version;
 
-use generic_array::typenum::{IsLessOrEqual, LeEq, NonZero, U64};
-use generic_array::{ArrayLength, GenericArray};
+#[cfg(feature = "decrypting")]
+mod local;
+#[cfg(feature = "pie-wrap")]
+mod pie_wrap;
+#[cfg(feature = "pke")]
+mod pke;
+#[cfg(feature = "verifying")]
+mod public;
+#[cfg(feature = "pbkw")]
+mod pw_wrap;
 
 pub struct V4;
 
+#[cfg(feature = "decrypting")]
 #[derive(Clone)]
 pub struct LocalKey([u8; 32]);
 
+#[cfg(feature = "signing")]
 pub struct SecretKey(
     ed25519_dalek::SecretKey,
     ed25519_dalek::hazmat::ExpandedSecretKey,
 );
 
+#[cfg(feature = "verifying")]
 #[derive(Clone)]
 pub struct PublicKey(pub(super) ed25519_dalek::VerifyingKey);
 
-impl paseto_core::version::Version for V4 {
+impl version::Version for V4 {
     const HEADER: &'static str = "v4";
-
-    type LocalKey = LocalKey;
-    type PublicKey = PublicKey;
-    type SecretKey = SecretKey;
-}
-
-impl paseto_core::paserk::PaserkVersion for V4 {
     const PASERK_HEADER: &'static str = "k4";
 
+    #[cfg(feature = "decrypting")]
+    type LocalKey = LocalKey;
+
+    #[cfg(not(feature = "decrypting"))]
+    type LocalKey = paseto_core::key::Unimplemented<Self, version::Local>;
+
+    #[cfg(feature = "signing")]
+    type SecretKey = SecretKey;
+
+    #[cfg(not(feature = "signing"))]
+    type SecretKey = paseto_core::key::Unimplemented<Self, version::Secret>;
+
+    #[cfg(feature = "verifying")]
+    type PublicKey = PublicKey;
+
+    #[cfg(not(feature = "verifying"))]
+    type PublicKey = paseto_core::key::Unimplemented<Self, version::Public>;
+}
+
+#[cfg(feature = "id")]
+impl paseto_core::paserk::IdVersion for V4 {
     fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33] {
         use digest::consts::U33;
         use digest::{FixedOutput, Update};
 
         let mut ctx = blake2::Blake2b::<U33>::default();
-        ctx.update(Self::PASERK_HEADER.as_bytes());
+        ctx.update(b"k4");
         ctx.update(key_header.as_bytes());
         ctx.update(key_data);
         ctx.finalize_fixed().into()
     }
 }
 
+#[cfg(any(feature = "decrypting", feature = "signing"))]
 struct PreAuthEncodeDigest<'a, M: digest::Update>(pub &'a mut M);
+#[cfg(any(feature = "decrypting", feature = "signing"))]
 impl<'a, M: digest::Update> paseto_core::pae::WriteBytes for PreAuthEncodeDigest<'a, M> {
     fn write(&mut self, slice: &[u8]) {
         self.0.update(slice)
     }
 }
 
-fn kdf<O>(key: &[u8], sep: &'static [u8], nonce: &[u8]) -> GenericArray<u8, O>
+#[cfg(feature = "decrypting")]
+fn kdf<O>(key: &[u8], sep: &'static [u8], nonce: &[u8]) -> generic_array::GenericArray<u8, O>
 where
-    O: ArrayLength<u8> + IsLessOrEqual<U64>,
-    LeEq<O, U64>: NonZero,
+    O: generic_array::ArrayLength<u8>
+        + generic_array::typenum::IsLessOrEqual<generic_array::typenum::U64>,
+    generic_array::typenum::LeEq<O, generic_array::typenum::U64>: generic_array::typenum::NonZero,
 {
     use digest::Mac;
 
