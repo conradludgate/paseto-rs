@@ -49,6 +49,7 @@ impl<V: PkeVersion> core::str::FromStr for SealedKey<V> {
 }
 
 impl<V: PkeVersion> LocalKey<V> {
+    /// Encrypt the key such that it can only be decrypted by the resspective secret key.
     pub fn seal(self, with: &PublicKey<V>) -> Result<SealedKey<V>, PasetoError> {
         V::seal_key(&with.0, self.0).map(|key_data| SealedKey {
             key_data,
@@ -58,6 +59,7 @@ impl<V: PkeVersion> LocalKey<V> {
 }
 
 impl<V: PkeVersion> SealedKey<V> {
+    /// Decrypt the sealed key.
     pub fn unseal(self, with: &SecretKey<V>) -> Result<LocalKey<V>, PasetoError> {
         V::unseal_key(&with.0, self.key_data).map(Key)
     }

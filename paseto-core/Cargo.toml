@@ -1,6 +1,6 @@
 [package]
 name = "paseto-core"
-version = "0.1.0-rc.5"
+version = "0.1.0-rc.6"
 edition = "2024"
 authors = ["Conrad Ludgate <conradludgate@gmail.com>"]
 repository = "https://github.com/conradludgate/paseto-rs"
@@ -21,4 +21,3 @@ serde = ["dep:serde_core"]
 
 [dependencies]
 serde_core = { version = "1", default-features = false, optional = true }
-hashbrown = { version = "0.16", default-features = false }

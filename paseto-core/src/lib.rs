@@ -1,3 +1,14 @@
+//! PASETO core traits and types.
+//!
+//! This library is mainly offered for crypto developers to write PASETO
+//! libraries easily.
+//!
+//! See:
+//! * <https://crates.io/crates/paseto-v3>
+//! * <https://crates.io/crates/paseto-v3-aws-lc>
+//! * <https://crates.io/crates/paseto-v4>
+//! * <https://crates.io/crates/paseto-v4-sodium>
+
 #![no_std]
 #![deny(unsafe_code)]
 
@@ -21,8 +32,21 @@ pub mod version;
 use alloc::boxed::Box;
 use core::error::Error;
 
-pub use key::{LocalKey, PublicKey, SecretKey};
-pub use tokens::{DecryptedToken, EncryptedToken, SignedToken, VerifiedToken};
+/// Private key used for [`encryption`](crate::UnencryptedToken::encrypt) and [`decryptiom`](crate::EncryptedToken::decrypt)
+pub type LocalKey<V> = key::Key<V, version::Local>;
+/// Public key used for signature [`verification`](crate::SignedToken::verify)
+pub type PublicKey<V> = key::Key<V, version::Public>;
+/// Private key used for token [`signing`](crate::UnsignedToken::sign)
+pub type SecretKey<V> = key::Key<V, version::Secret>;
+
+/// A token with publically readable data, but not yet verified
+pub type SignedToken<V, M, F = ()> = tokens::SealedToken<V, version::Public, M, F>;
+/// A token with secret data
+pub type EncryptedToken<V, M, F = ()> = tokens::SealedToken<V, version::Local, M, F>;
+/// A [`SignedToken`] that has been verified
+pub type UnsignedToken<V, M, F = ()> = tokens::UnsealedToken<V, version::Public, M, F>;
+/// An [`EncryptedToken`] that has been decrypted
+pub type UnencryptedToken<V, M, F = ()> = tokens::UnsealedToken<V, version::Local, M, F>;
 
 mod sealed {
     pub trait Sealed {}

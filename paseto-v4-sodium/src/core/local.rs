@@ -2,13 +2,13 @@ use libsodium_rs::crypto_stream::{self, xchacha20};
 use libsodium_rs::utils::compare;
 use libsodium_rs::{crypto_generichash, random};
 use paseto_core::PasetoError;
-use paseto_core::key::KeyKind;
+use paseto_core::key::KeyEncoding;
 use paseto_core::pae::pre_auth_encode;
-use paseto_core::version::{Local, Marker};
+use paseto_core::version::Local;
 
 use super::{LocalKey, V4, kdf};
 
-impl KeyKind for LocalKey {
+impl KeyEncoding for LocalKey {
     type Version = V4;
     type KeyType = Local;
 
@@ -47,14 +47,14 @@ impl LocalKey {
 }
 
 impl paseto_core::version::SealingVersion<Local> for V4 {
-    fn unsealing_key(key: &crate::LocalKey) -> crate::LocalKey {
-        crate::LocalKey::from_inner(LocalKey(key.as_inner().0))
+    fn unsealing_key(key: &LocalKey) -> LocalKey {
+        LocalKey(key.0)
     }
 
-    fn random() -> Result<crate::LocalKey, PasetoError> {
+    fn random() -> Result<LocalKey, PasetoError> {
         let mut bytes = [0; 32];
         random::fill_bytes(&mut bytes);
-        Ok(crate::LocalKey::from_inner(LocalKey(bytes)))
+        Ok(LocalKey(bytes))
     }
 
     fn nonce() -> Result<Vec<u8>, PasetoError> {
@@ -62,7 +62,7 @@ impl paseto_core::version::SealingVersion<Local> for V4 {
     }
 
     fn dangerous_seal_with_nonce(
-        key: &crate::LocalKey,
+        key: &LocalKey,
         encoding: &'static str,
         mut payload: Vec<u8>,
         footer: &[u8],
@@ -71,7 +71,7 @@ impl paseto_core::version::SealingVersion<Local> for V4 {
         let (nonce, plaintext) = payload
             .split_first_chunk::<32>()
             .ok_or(PasetoError::InvalidToken)?;
-        let (ek, n2, mut mac) = key.as_inner().keys(nonce);
+        let (ek, n2, mut mac) = key.keys(nonce);
 
         let ciphertext =
             xchacha20::stream_xor(plaintext, &n2, &ek).map_err(|_| PasetoError::CryptoError)?;
@@ -88,7 +88,7 @@ impl paseto_core::version::SealingVersion<Local> for V4 {
 
 impl paseto_core::version::UnsealingVersion<Local> for V4 {
     fn unseal<'a>(
-        key: &crate::LocalKey,
+        key: &LocalKey,
         encoding: &'static str,
         payload: &'a mut [u8],
         footer: &[u8],
@@ -106,7 +106,7 @@ impl paseto_core::version::UnsealingVersion<Local> for V4 {
             .split_first_chunk_mut::<32>()
             .ok_or(PasetoError::InvalidToken)?;
 
-        let (ek, n2, mut mac) = key.as_inner().keys(nonce);
+        let (ek, n2, mut mac) = key.keys(nonce);
 
         preauth_local(&mut mac, encoding, nonce, ciphertext, footer, aad);
         if compare(&mac.finalize(), tag) != 0 {
@@ -136,6 +136,7 @@ fn preauth_local(
     footer: &[u8],
     aad: &[u8],
 ) {
+    use paseto_core::key::KeyType;
     pre_auth_encode(
         [
             &[

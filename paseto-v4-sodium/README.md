@@ -5,14 +5,13 @@ libsodium based PASETO V4 implementation.
 ## Examples
 
 ```rust
-use paseto_v4_sodium::libsodium;
-use paseto_v4_sodium::VerifiedToken;
+use paseto_v4_sodium::UnsignedToken;
 use paseto_v4_sodium::key::{SecretKey, SealingKey};
 use paseto_json::RegisteredClaims;
 use std::time::Duration;
 
 // init libsodium
-libsodium::ensure_init().expect("libsodium should initialise successfully");
+paseto_v4_sodium::ensure_init().expect("libsodium should initialise successfully");
 
 // create a new keypair
 let secret_key = SecretKey::random().unwrap();
@@ -24,7 +23,7 @@ let claims = RegisteredClaims::now(Duration::from_secs(3600))
     .for_subject("conradludgate".to_string());
 
 // create and sign a new token
-let signed_token = VerifiedToken::new(claims).sign(&secret_key).unwrap();
+let signed_token = UnsignedToken::new(claims).sign(&secret_key).unwrap();
 
 // serialize the token.
 let token = signed_token.to_string();

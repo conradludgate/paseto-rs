@@ -2,21 +2,20 @@ use alloc::boxed::Box;
 use core::fmt;
 use core::marker::PhantomData;
 
-use crate::key::{Key, KeyKind};
+use crate::key::{Key, KeyEncoding, SealingKey};
 use crate::paserk::PieWrapVersion;
-use crate::version::SealingMarker;
 use crate::{LocalKey, PasetoError};
 
 /// An symmetrically encrypted [`Key`].
 ///
 /// * Encrypted using [`Key::wrap_pie`]
 /// * Decrypted using [`PieWrappedKey::unwrap`]
-pub struct PieWrappedKey<V: PieWrapVersion, K: SealingMarker> {
+pub struct PieWrappedKey<V: PieWrapVersion, K: SealingKey> {
     key_data: Box<[u8]>,
     _version: PhantomData<(V, K)>,
 }
 
-impl<V: PieWrapVersion, K: SealingMarker> Key<V, K> {
+impl<V: PieWrapVersion, K: SealingKey> Key<V, K> {
     pub fn wrap_pie(self, with: &LocalKey<V>) -> Result<PieWrappedKey<V, K>, PasetoError> {
         V::pie_wrap_key(K::PIE_WRAP_HEADER, &with.0, self.0.encode().into_vec()).map(|key_data| {
             PieWrappedKey {
@@ -27,15 +26,15 @@ impl<V: PieWrapVersion, K: SealingMarker> Key<V, K> {
     }
 }
 
-impl<V: PieWrapVersion, K: SealingMarker> PieWrappedKey<V, K> {
+impl<V: PieWrapVersion, K: SealingKey> PieWrappedKey<V, K> {
     pub fn unwrap(mut self, with: &LocalKey<V>) -> Result<Key<V, K>, PasetoError> {
         V::pie_unwrap_key(K::PIE_WRAP_HEADER, &with.0, &mut self.key_data)
-            .and_then(KeyKind::decode)
+            .and_then(KeyEncoding::decode)
             .map(Key)
     }
 }
 
-impl<V: PieWrapVersion, K: SealingMarker> fmt::Display for PieWrappedKey<V, K> {
+impl<V: PieWrapVersion, K: SealingKey> fmt::Display for PieWrappedKey<V, K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(V::PASERK_HEADER)?;
         f.write_str(K::PIE_WRAP_HEADER)?;
@@ -43,7 +42,7 @@ impl<V: PieWrapVersion, K: SealingMarker> fmt::Display for PieWrappedKey<V, K> {
     }
 }
 
-impl<V: PieWrapVersion, K: SealingMarker> core::str::FromStr for PieWrappedKey<V, K> {
+impl<V: PieWrapVersion, K: SealingKey> core::str::FromStr for PieWrappedKey<V, K> {
     type Err = PasetoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -65,7 +64,7 @@ serde_str!(
     impl<V, K> PieWrappedKey<V, K>
     where
         V: PieWrapVersion,
-        K: SealingMarker,
+        K: SealingKey,
     {
         fn expecting() {
             format_args!(

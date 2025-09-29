@@ -1,5 +1,6 @@
-use paseto_core::key::Key;
-use paseto_core::version::{Marker, Version};
+use paseto_core::key::{Key, KeyType};
+use paseto_core::paserk::KeyText;
+use paseto_core::version::Version;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
 
@@ -58,12 +59,14 @@ pub fn deserialize_hex<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Er
     hex::decode(s).map_err(serde::de::Error::custom)
 }
 
-pub fn deserialize_key<'de, D: Deserializer<'de>, V: Version, K: Marker>(
+pub fn deserialize_key<'de, D: Deserializer<'de>, V: Version, K: KeyType>(
     d: D,
 ) -> Result<Key<V, K>, D::Error> {
-    Key::<V, K>::from_raw_bytes(&deserialize_hex(d)?).map_err(serde::de::Error::custom)
+    KeyText::<V, K>::from_raw_bytes(&deserialize_hex(d)?)
+        .try_into()
+        .map_err(serde::de::Error::custom)
 }
 
-pub fn eq_keys<V: Version, K: Marker>(k1: &Key<V, K>, k2: &Key<V, K>) -> bool {
+pub fn eq_keys<V: Version, K: KeyType>(k1: &Key<V, K>, k2: &Key<V, K>) -> bool {
     k1.expose_key() == k2.expose_key()
 }

@@ -1,9 +1,10 @@
 //! Pre-auth encoding
 //!
-//! This is a low level detail used to build PASETO version implementations.
+//! <https://github.com/paseto-standard/paseto-spec/blob/master/docs/01-Protocol-Versions/Common.md#authentication-padding>
 
 pub use crate::encodings::WriteBytes;
 
+/// Encode the pieces using the pre-auth-encoding scheme.
 pub fn pre_auth_encode<const N: usize>(pieces: [&[&[u8]]; N], mut out: impl WriteBytes) {
     let len = N as u64;
     out.write(&len.to_le_bytes());

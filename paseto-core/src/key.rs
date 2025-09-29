@@ -1,40 +1,21 @@
+//! Core traits and types for PASETO keys.
+
 use alloc::boxed::Box;
 use core::convert::Infallible;
 use core::fmt;
 use core::marker::PhantomData;
 
-use crate::PasetoError;
 use crate::paserk::{IdVersion, KeyId, KeyText};
-use crate::version::{Local, Marker, Public, SealingVersion, Secret, Version};
+use crate::sealed::Sealed;
+use crate::version::{Local, Public, SealingVersion, Secret, Version};
+use crate::{LocalKey, PasetoError, PublicKey, SecretKey};
 
-/// Defines a PASERK key type
-pub trait KeyKind: Sized {
-    type Version: Version;
-    type KeyType: Marker;
-
-    fn encode(&self) -> Box<[u8]>;
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError>;
-}
-
-pub struct Unimplemented<V: Version, K: Marker>(Infallible, PhantomData<(V, K)>);
-
-impl<V: Version, K: Marker> KeyKind for Unimplemented<V, K> {
-    type Version = V;
-    type KeyType = K;
-
-    fn encode(&self) -> Box<[u8]> {
-        match self.0 {}
-    }
-
-    fn decode(_: &[u8]) -> Result<Self, PasetoError> {
-        unimplemented!("Key type {}{} is not supported", V::HEADER, K::HEADER)
-    }
-}
+pub(crate) type KeyInner<V, K> = <K as KeyType>::Key<V>;
 
 /// Generic key type.
-pub struct Key<V: Version, K: Marker>(pub(crate) K::Key<V>);
+pub struct Key<V: Version, K: KeyType>(pub(crate) KeyInner<V, K>);
 
-impl<V: Version, K: Marker> Clone for Key<V, K>
+impl<V: Version, K: KeyType> Clone for Key<V, K>
 where
     K::Key<V>: Clone,
 {
@@ -43,48 +24,22 @@ where
     }
 }
 
-/// Private key used for [`encryption`](crate::DecryptedToken::encrypt) and [`decryptiom`](crate::EncryptedToken::decrypt)
-pub type LocalKey<V> = Key<V, Local>;
-/// Public key used for signature [`verification`](crate::SignedToken::verify)
-pub type PublicKey<V> = Key<V, Public>;
-/// Private key used for token [`signing`](crate::VerifiedToken::sign)
-pub type SecretKey<V> = Key<V, Secret>;
-
-impl<V: Version, K: Marker> Key<V, K> {
-    pub fn from_raw_bytes(b: &[u8]) -> Result<Self, PasetoError> {
-        KeyKind::decode(b).map(Self)
-    }
-
-    pub fn into_raw_bytes(&self) -> Box<[u8]> {
-        self.0.encode()
-    }
-
-    pub fn into_inner(self) -> K::Key<V> {
-        self.0
-    }
-
-    pub fn from_inner(key: K::Key<V>) -> Self {
-        Self(key)
-    }
-
-    pub fn as_inner(&self) -> &K::Key<V> {
-        &self.0
-    }
-}
-
 impl<V: SealingVersion<Public>> SecretKey<V> {
+    /// Generate a random secret key
     pub fn random() -> Result<Self, PasetoError> {
-        V::random()
+        V::random().map(Self)
     }
 
+    /// Derive the associated public key
     pub fn public_key(&self) -> PublicKey<V> {
-        V::unsealing_key(self)
+        Key(V::unsealing_key(&self.0))
     }
 }
 
 impl<V: SealingVersion<Local>> LocalKey<V> {
+    /// Generate a random local key
     pub fn random() -> Result<Self, PasetoError> {
-        V::random()
+        V::random().map(Self)
     }
 }
 
@@ -94,15 +49,93 @@ impl<V: Version> fmt::Display for PublicKey<V> {
     }
 }
 
-impl<V: Version, K: Marker> core::str::FromStr for Key<V, K> {
+impl<V: Version, K: KeyType> core::str::FromStr for Key<V, K> {
     type Err = PasetoError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        KeyText::<V, K>::from_str(s).and_then(|k| k.decode())
+        KeyText::<V, K>::from_str(s).and_then(|k| k.try_into())
     }
 }
 
-impl<V: IdVersion, K: Marker> Key<V, K> {
+impl<V: IdVersion, K: KeyType> Key<V, K> {
+    /// Generate the ID of this key
     pub fn id(&self) -> KeyId<V, K> {
         KeyId::from(&self.expose_key())
+    }
+}
+
+/// A marker for [`Secret`], [`Public`], and [`Local`]
+pub trait KeyType: Send + Sync + Sealed + Sized + 'static {
+    /// ".local." or ".public." or ".secret."
+    const HEADER: &'static str;
+    /// ".lid." or ".pid." or ".sid."
+    const ID_HEADER: &'static str;
+
+    /// The key to extract from the version.
+    type Key<V: Version>: KeyEncoding<Version = V, KeyType = Self>;
+}
+
+/// A marker for [`Secret`] and [`Local`] keys, used for signing and encrypting tokens.
+pub trait SealingKey: KeyType {
+    const PIE_WRAP_HEADER: &'static str;
+    const PW_WRAP_HEADER: &'static str;
+}
+
+impl KeyType for Secret {
+    const HEADER: &'static str = ".secret.";
+    const ID_HEADER: &'static str = ".sid.";
+
+    type Key<V: Version> = V::SecretKey;
+}
+
+impl SealingKey for Secret {
+    const PIE_WRAP_HEADER: &'static str = ".secret-wrap.pie.";
+    const PW_WRAP_HEADER: &'static str = ".secret-pw.";
+}
+
+impl KeyType for Public {
+    const HEADER: &'static str = ".public.";
+    const ID_HEADER: &'static str = ".pid.";
+
+    type Key<V: Version> = V::PublicKey;
+}
+
+impl KeyType for Local {
+    const HEADER: &'static str = ".local.";
+    const ID_HEADER: &'static str = ".lid.";
+
+    type Key<V: Version> = V::LocalKey;
+}
+
+impl SealingKey for Local {
+    const PIE_WRAP_HEADER: &'static str = ".local-wrap.pie.";
+    const PW_WRAP_HEADER: &'static str = ".local-pw.";
+}
+
+/// Defines a PASETO key encoding and decoding
+pub trait KeyEncoding: Sized {
+    /// The version of PASETO this key is bound to.
+    type Version: Version;
+    /// The kind of key, [`Local`], [`Public`], or [`Secret`].
+    type KeyType: KeyType;
+
+    /// Encode the key into bytes.
+    fn encode(&self) -> Box<[u8]>;
+    /// Decode the key from bytes.
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError>;
+}
+
+/// An unimplemented key. Useful if you don't want to implement some of the PASETO operations.
+pub struct Unimplemented<V: Version, K: KeyType>(Infallible, PhantomData<(V, K)>);
+
+impl<V: Version, K: KeyType> KeyEncoding for Unimplemented<V, K> {
+    type Version = V;
+    type KeyType = K;
+
+    fn encode(&self) -> Box<[u8]> {
+        match self.0 {}
+    }
+
+    fn decode(_: &[u8]) -> Result<Self, PasetoError> {
+        unimplemented!("Key type {}{} is not supported", V::HEADER, K::HEADER)
     }
 }

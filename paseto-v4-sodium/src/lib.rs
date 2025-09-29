@@ -1,13 +1,12 @@
 //! PASETO v4 (libsodium)
 //!
 //! ```
-//! use paseto_v4_sodium::{SignedToken, VerifiedToken, SecretKey, PublicKey};
-//! use paseto_v4_sodium::libsodium;
+//! use paseto_v4_sodium::{SignedToken, UnsignedToken, SecretKey, PublicKey};
 //! use paseto_json::{RegisteredClaims, Time, HasExpiry, FromIssuer, ForSubject, Validate};
 //! use std::time::Duration;
 //!
 //! // init libsodium
-//! libsodium::ensure_init().expect("libsodium should initialise successfully");
+//! paseto_v4_sodium::ensure_init().expect("libsodium should initialise successfully");
 //!
 //! // create a new keypair
 //! let secret_key = SecretKey::random().unwrap();
@@ -19,7 +18,7 @@
 //!     .for_subject("conradludgate".to_string());
 //!
 //! // create and sign a new token
-//! let signed_token = VerifiedToken::new(claims).sign(&secret_key).unwrap();
+//! let signed_token = UnsignedToken::new(claims).sign(&secret_key).unwrap();
 //!
 //! // serialize the token.
 //! let token = signed_token.to_string();
@@ -56,15 +55,15 @@ pub type SignedToken<M, F = ()> = paseto_core::SignedToken<core::V4, M, F>;
 /// A token with secret data
 pub type EncryptedToken<M, F = ()> = paseto_core::EncryptedToken<core::V4, M, F>;
 /// A [`SignedToken`] that has been verified
-pub type VerifiedToken<M, F = ()> = paseto_core::VerifiedToken<core::V4, M, F>;
+pub type UnsignedToken<M, F = ()> = paseto_core::UnsignedToken<core::V4, M, F>;
 /// An [`EncryptedToken`] that has been decrypted
-pub type DecryptedToken<M, F = ()> = paseto_core::DecryptedToken<core::V4, M, F>;
+pub type UnencryptedToken<M, F = ()> = paseto_core::UnencryptedToken<core::V4, M, F>;
 
-/// Private key used for [`encryption`](DecryptedToken::encrypt) and [`decryptiom`](EncryptedToken::decrypt)
+/// Private key used for [`encryption`](UnencryptedToken::encrypt) and [`decryptiom`](EncryptedToken::decrypt)
 pub type LocalKey = paseto_core::LocalKey<core::V4>;
 /// Public key used for signature [`verification`](SignedToken::verify)
 pub type PublicKey = paseto_core::PublicKey<core::V4>;
-/// Private key used for token [`signing`](VerifiedToken::sign)
+/// Private key used for token [`signing`](UnsignedToken::sign)
 pub type SecretKey = paseto_core::SecretKey<core::V4>;
 
 /// A short ID for a key.
@@ -74,4 +73,4 @@ pub type KeyText<K> = paseto_core::paserk::KeyText<core::V4, K>;
 /// An asymmetrically encrypted [`LocalKey`].
 pub type SealedKey = paseto_core::paserk::SealedKey<core::V4>;
 
-pub use libsodium_rs as libsodium;
+pub use libsodium_rs::ensure_init;

@@ -1,12 +1,12 @@
 use libsodium_rs::{crypto_sign, random};
 use paseto_core::PasetoError;
-use paseto_core::key::KeyKind;
+use paseto_core::key::KeyEncoding;
 use paseto_core::pae::pre_auth_encode;
-use paseto_core::version::{Marker, Public, Secret};
+use paseto_core::version::{Public, Secret};
 
 use super::{PublicKey, SecretKey, V4};
 
-impl KeyKind for PublicKey {
+impl KeyEncoding for PublicKey {
     type Version = V4;
     type KeyType = Public;
 
@@ -20,7 +20,7 @@ impl KeyKind for PublicKey {
     }
 }
 
-impl KeyKind for SecretKey {
+impl KeyEncoding for SecretKey {
     type Version = V4;
     type KeyType = Secret;
 
@@ -47,16 +47,16 @@ impl SecretKey {
 }
 
 impl paseto_core::version::SealingVersion<Public> for V4 {
-    fn unsealing_key(key: &crate::SecretKey) -> crate::PublicKey {
-        crate::PublicKey::from_inner(key.as_inner().unsealing_key())
+    fn unsealing_key(key: &SecretKey) -> PublicKey {
+        key.unsealing_key()
     }
 
-    fn random() -> Result<crate::SecretKey, PasetoError> {
+    fn random() -> Result<SecretKey, PasetoError> {
         let mut secret_key = [0; 32];
         loop {
             random::fill_bytes(&mut secret_key);
             match crypto_sign::keypair_from_seed(&secret_key) {
-                Ok(key) => break Ok(crate::SecretKey::from_inner(SecretKey(key.secret_key))),
+                Ok(key) => break Ok(SecretKey(key.secret_key)),
                 Err(_) => continue,
             }
         }
@@ -67,15 +67,15 @@ impl paseto_core::version::SealingVersion<Public> for V4 {
     }
 
     fn dangerous_seal_with_nonce(
-        key: &crate::SecretKey,
+        key: &SecretKey,
         encoding: &'static str,
         mut payload: Vec<u8>,
         footer: &[u8],
         aad: &[u8],
     ) -> Result<Vec<u8>, PasetoError> {
         let bytes = preauth_public(encoding, &payload, footer, aad);
-        let sig = crypto_sign::sign_detached(&bytes, &key.as_inner().0)
-            .map_err(|_| PasetoError::CryptoError)?;
+        let sig =
+            crypto_sign::sign_detached(&bytes, &key.0).map_err(|_| PasetoError::CryptoError)?;
         payload.extend_from_slice(&sig);
         Ok(payload)
     }
@@ -83,7 +83,7 @@ impl paseto_core::version::SealingVersion<Public> for V4 {
 
 impl paseto_core::version::UnsealingVersion<Public> for V4 {
     fn unseal<'a>(
-        key: &crate::PublicKey,
+        key: &PublicKey,
         encoding: &'static str,
         payload: &'a mut [u8],
         footer: &[u8],
@@ -93,7 +93,7 @@ impl paseto_core::version::UnsealingVersion<Public> for V4 {
             .split_last_chunk::<64>()
             .ok_or(PasetoError::InvalidToken)?;
         let bytes = preauth_public(encoding, cleartext, footer, aad);
-        if !crypto_sign::verify_detached(tag, &bytes, &key.as_inner().0) {
+        if !crypto_sign::verify_detached(tag, &bytes, &key.0) {
             return Err(PasetoError::CryptoError);
         }
 
@@ -102,6 +102,7 @@ impl paseto_core::version::UnsealingVersion<Public> for V4 {
 }
 
 fn preauth_public(encoding: &'static str, cleartext: &[u8], footer: &[u8], aad: &[u8]) -> Vec<u8> {
+    use paseto_core::key::KeyType;
     let mut out = Vec::new();
     pre_auth_encode(
         [

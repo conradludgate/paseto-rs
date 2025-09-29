@@ -6,6 +6,8 @@ mod pie_wrap;
 mod pke;
 #[cfg(feature = "verifying")]
 mod public;
+#[cfg(feature = "pbkw")]
+mod pw_wrap;
 
 use paseto_core::version;
 

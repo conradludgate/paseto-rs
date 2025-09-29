@@ -3,24 +3,25 @@ use core::fmt;
 use core::marker::PhantomData;
 
 use crate::PasetoError;
-use crate::key::{Key, KeyKind};
+use crate::key::{Key, KeyEncoding, SealingKey};
 use crate::paserk::PwWrapVersion;
-use crate::version::SealingMarker;
 
 /// An password encrypted [`Key`].
 ///
 /// * Encrypted using [`Key::password_wrap`]
 /// * Decrypted using [`PasswordWrappedKey::unwrap`]
-pub struct PasswordWrappedKey<V: PwWrapVersion, K: SealingMarker> {
+pub struct PasswordWrappedKey<V: PwWrapVersion, K: SealingKey> {
     key_data: Box<[u8]>,
     _version: PhantomData<(V, K)>,
 }
 
-impl<V: PwWrapVersion, K: SealingMarker> Key<V, K> {
+impl<V: PwWrapVersion, K: SealingKey> Key<V, K> {
+    /// Encrypt the key using the password.
     pub fn password_wrap(self, pass: &[u8]) -> Result<PasswordWrappedKey<V, K>, PasetoError> {
         self.password_wrap_with_params(pass, &V::Params::default())
     }
 
+    /// Encrypt the key using the password, configured with the specified parameters.
     pub fn password_wrap_with_params(
         self,
         pass: &[u8],
@@ -35,19 +36,21 @@ impl<V: PwWrapVersion, K: SealingMarker> Key<V, K> {
     }
 }
 
-impl<V: PwWrapVersion, K: SealingMarker> PasswordWrappedKey<V, K> {
+impl<V: PwWrapVersion, K: SealingKey> PasswordWrappedKey<V, K> {
+    /// Extract the parameters the key was encrypted with.
     pub fn params(&self) -> Result<V::Params, PasetoError> {
         V::get_params(&self.key_data)
     }
 
+    /// Decrypt the key using the password.
     pub fn unwrap(mut self, pass: &[u8]) -> Result<Key<V, K>, PasetoError> {
         V::pw_unwrap_key(K::PW_WRAP_HEADER, pass, &mut self.key_data)
-            .and_then(KeyKind::decode)
+            .and_then(KeyEncoding::decode)
             .map(Key)
     }
 }
 
-impl<V: PwWrapVersion, K: SealingMarker> fmt::Display for PasswordWrappedKey<V, K> {
+impl<V: PwWrapVersion, K: SealingKey> fmt::Display for PasswordWrappedKey<V, K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(V::PASERK_HEADER)?;
         f.write_str(K::PW_WRAP_HEADER)?;
@@ -55,7 +58,7 @@ impl<V: PwWrapVersion, K: SealingMarker> fmt::Display for PasswordWrappedKey<V, 
     }
 }
 
-impl<V: PwWrapVersion, K: SealingMarker> core::str::FromStr for PasswordWrappedKey<V, K> {
+impl<V: PwWrapVersion, K: SealingKey> core::str::FromStr for PasswordWrappedKey<V, K> {
     type Err = PasetoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -77,7 +80,7 @@ serde_str!(
     impl<V, K> PasswordWrappedKey<V, K>
     where
         V: PwWrapVersion,
-        K: SealingMarker,
+        K: SealingKey,
     {
         fn expecting() {
             format_args!(

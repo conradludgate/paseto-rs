@@ -5,13 +5,13 @@ use aws_lc_rs::hmac::{self, HMAC_SHA384};
 use aws_lc_rs::iv::FixedLength;
 use aws_lc_rs::rand::{SecureRandom, SystemRandom};
 use paseto_core::PasetoError;
-use paseto_core::key::KeyKind;
+use paseto_core::key::KeyEncoding;
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
-use paseto_core::version::{Local, Marker};
+use paseto_core::version::Local;
 
 use super::{Cipher, LocalKey, V3};
 
-impl KeyKind for LocalKey {
+impl KeyEncoding for LocalKey {
     type Version = V3;
     type KeyType = Local;
 
@@ -27,7 +27,7 @@ impl KeyKind for LocalKey {
 }
 
 impl LocalKey {
-    fn keys(&self, nonce: &[u8]) -> Result<(Cipher, hmac::Key), PasetoError> {
+    fn keys(&self, nonce: &[u8]) -> Result<(Cipher, hmac::Context), PasetoError> {
         let aead_key = kdf(&self.0, "paseto-encryption-key", nonce)?;
         let (ek, n2) = aead_key
             .split_last_chunk::<16>()
@@ -36,23 +36,23 @@ impl LocalKey {
 
         let key = UnboundCipherKey::new(&AES_256, ek).map_err(|_| PasetoError::CryptoError)?;
         let iv = FixedLength::from(n2);
-        let mac = hmac::Key::new(HMAC_SHA384, &ak);
+        let mac = hmac::Context::with_key(&hmac::Key::new(HMAC_SHA384, &ak));
 
         Ok((Cipher(key, iv), mac))
     }
 }
 
 impl paseto_core::version::SealingVersion<Local> for V3 {
-    fn unsealing_key(key: &crate::LocalKey) -> crate::LocalKey {
-        crate::LocalKey::from_inner(LocalKey(key.as_inner().0))
+    fn unsealing_key(key: &LocalKey) -> LocalKey {
+        LocalKey(key.0)
     }
 
-    fn random() -> Result<crate::LocalKey, PasetoError> {
+    fn random() -> Result<LocalKey, PasetoError> {
         let mut bytes = [0; 32];
         SystemRandom::new()
             .fill(&mut bytes)
             .map_err(|_| PasetoError::CryptoError)?;
-        Ok(crate::LocalKey::from_inner(LocalKey(bytes)))
+        Ok(LocalKey(bytes))
     }
 
     fn nonce() -> Result<Vec<u8>, PasetoError> {
@@ -67,7 +67,7 @@ impl paseto_core::version::SealingVersion<Local> for V3 {
     }
 
     fn dangerous_seal_with_nonce(
-        key: &crate::LocalKey,
+        key: &LocalKey,
         encoding: &'static str,
         mut payload: Vec<u8>,
         footer: &[u8],
@@ -75,11 +75,11 @@ impl paseto_core::version::SealingVersion<Local> for V3 {
     ) -> Result<Vec<u8>, PasetoError> {
         let (nonce, ciphertext) = payload.split_at_mut(32);
 
-        let (cipher, mac) = key.as_inner().keys(nonce)?;
+        let (cipher, mut mac) = key.keys(nonce)?;
 
         cipher.apply_keystream(ciphertext)?;
-        let tag = preauth_local(mac, encoding, nonce, ciphertext, footer, aad);
-        payload.extend_from_slice(tag.as_ref());
+        preauth_local(&mut mac, encoding, nonce, ciphertext, footer, aad);
+        payload.extend_from_slice(mac.sign().as_ref());
 
         Ok(payload)
     }
@@ -87,7 +87,7 @@ impl paseto_core::version::SealingVersion<Local> for V3 {
 
 impl paseto_core::version::UnsealingVersion<Local> for V3 {
     fn unseal<'a>(
-        key: &crate::LocalKey,
+        key: &LocalKey,
         encoding: &'static str,
         payload: &'a mut [u8],
         footer: &[u8],
@@ -101,10 +101,10 @@ impl paseto_core::version::UnsealingVersion<Local> for V3 {
         let (ciphertext, tag) = payload.split_at_mut(len - 48);
         let (nonce, ciphertext) = ciphertext.split_at_mut(32);
 
-        let (cipher, mac) = key.as_inner().keys(nonce)?;
+        let (cipher, mut mac) = key.keys(nonce)?;
 
-        let actual_tag = preauth_local(mac, encoding, nonce, ciphertext, footer, aad);
-        constant_time::verify_slices_are_equal(actual_tag.as_ref(), tag)
+        preauth_local(&mut mac, encoding, nonce, ciphertext, footer, aad);
+        constant_time::verify_slices_are_equal(mac.sign().as_ref(), tag)
             .map_err(|_| PasetoError::CryptoError)?;
 
         cipher.apply_keystream(ciphertext)?;
@@ -134,21 +134,21 @@ fn kdf(key: &[u8], sep: &'static str, nonce: &[u8]) -> Result<[u8; 48], PasetoEr
 }
 
 fn preauth_local(
-    mac: hmac::Key,
+    mac: &mut hmac::Context,
     encoding: &'static str,
     nonce: &[u8],
     ciphertext: &[u8],
     footer: &[u8],
     aad: &[u8],
-) -> hmac::Tag {
-    struct Context(hmac::Context);
-    impl WriteBytes for Context {
+) {
+    use paseto_core::key::KeyType;
+
+    struct Context<'a>(&'a mut hmac::Context);
+    impl WriteBytes for Context<'_> {
         fn write(&mut self, slice: &[u8]) {
             self.0.update(slice)
         }
     }
-
-    let mut ctx = Context(hmac::Context::with_key(&mac));
 
     pre_auth_encode(
         [
@@ -162,8 +162,6 @@ fn preauth_local(
             &[footer],
             &[aad],
         ],
-        &mut ctx,
+        Context(mac),
     );
-
-    ctx.0.sign()
 }

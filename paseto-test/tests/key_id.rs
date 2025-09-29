@@ -1,7 +1,7 @@
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::key::Key;
-use paseto_core::paserk::{IdVersion, KeyId};
-use paseto_core::version::{Local, Marker, Public, Secret};
+use paseto_core::key::{Key, KeyType};
+use paseto_core::paserk::{IdVersion, KeyId, KeyText};
+use paseto_core::version::{Local, Public, Secret};
 use paseto_test::{Bool, TestFile, read_test};
 use serde::Deserialize;
 
@@ -20,7 +20,7 @@ fn main() {
 
 #[derive(Deserialize)]
 #[serde(untagged, bound = "")]
-enum IdTest<V: IdVersion, K: Marker> {
+enum IdTest<V: IdVersion, K: KeyType> {
     #[serde(rename_all = "kebab-case")]
     Success {
         #[expect(unused)]
@@ -52,7 +52,7 @@ where
     IdTest::<V, Public>::add_tests(name, tests);
 }
 
-impl<V: IdVersion, K: Marker> IdTest<V, K>
+impl<V: IdVersion, K: KeyType> IdTest<V, K>
 where
     K::Key<V>: Send + 'static,
 {
@@ -80,10 +80,12 @@ where
 
                 Ok(())
             }
-            IdTest::KeyFailure { key, comment, .. } => match Key::<V, K>::from_raw_bytes(&key) {
-                Ok(_) => Err(comment.into()),
-                Err(_) => Ok(()),
-            },
+            IdTest::KeyFailure { key, comment, .. } => {
+                match Key::try_from(KeyText::<V, K>::from_raw_bytes(&key)) {
+                    Ok(_) => Err(comment.into()),
+                    Err(_) => Ok(()),
+                }
+            }
         }
     }
 }

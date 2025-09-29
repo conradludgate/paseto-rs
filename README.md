@@ -12,7 +12,7 @@
 ## Examples
 
 ```rust
-use paseto_v4::VerifiedToken;
+use paseto_v4::UnsignedToken;
 use paseto_v4::key::{SecretKey, SealingKey};
 use paseto_json::RegisteredClaims;
 use std::time::Duration;
@@ -27,7 +27,7 @@ let claims = RegisteredClaims::now(Duration::from_secs(3600))
     .for_subject("conradludgate".to_string());
 
 // create and sign a new token
-let signed_token = VerifiedToken::new(claims).sign(&secret_key).unwrap();
+let signed_token = UnsignedToken::new(claims).sign(&secret_key).unwrap();
 
 // serialize the token.
 let token = signed_token.to_string();

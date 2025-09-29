@@ -1,3 +1,7 @@
+//! Common PASETO claims validations.
+//!
+//! <https://github.com/paseto-standard/paseto-spec/blob/master/docs/02-Implementation-Guide/04-Claims.md>
+
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::sync::Arc;
@@ -32,9 +36,11 @@ pub trait Validate {
     }
 }
 
+/// Perform no validation on the claims.
 pub struct NoValidation<Claims>(PhantomData<Claims>);
 
 impl<Claims> NoValidation<Claims> {
+    /// Accept responsibility that the claims will be unvalidated.
     pub fn dangerous_no_validation() -> Self {
         NoValidation(PhantomData)
     }

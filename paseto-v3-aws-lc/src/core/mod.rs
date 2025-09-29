@@ -2,6 +2,7 @@ mod local;
 mod pie_wrap;
 mod pke;
 mod public;
+mod pw_wrap;
 
 use aws_lc_rs::cipher::{EncryptingKey, UnboundCipherKey};
 use aws_lc_rs::iv::FixedLength;
@@ -44,6 +45,7 @@ impl paseto_core::paserk::IdVersion for V3 {
 
 struct Cipher(UnboundCipherKey, FixedLength<16>);
 impl Cipher {
+    #[inline]
     fn apply_keystream(self, inout: &mut [u8]) -> Result<(), PasetoError> {
         EncryptingKey::ctr(self.0)
             .map_err(|_| PasetoError::CryptoError)?

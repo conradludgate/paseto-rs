@@ -76,8 +76,9 @@ impl PwWrapVersion for V4 {
         params: &Params,
         key_data: Vec<u8>,
     ) -> Result<Vec<u8>, PasetoError> {
-        let mut out = Vec::with_capacity(88 + key_data.len());
-        out.extend_from_slice(&[0; 56]);
+        let mut out =
+            Vec::with_capacity(size_of::<Prefix>() + key_data.len() + size_of::<Suffix>());
+        out.extend_from_slice(&[0; size_of::<Prefix>()]);
         let prefix = Prefix::mut_from_bytes(&mut out).expect("should be correct size");
 
         prefix.params = *params;

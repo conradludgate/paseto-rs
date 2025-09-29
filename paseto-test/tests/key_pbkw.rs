@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::key::Key;
+use paseto_core::key::{Key, SealingKey};
 use paseto_core::paserk::{PasswordWrappedKey, PwWrapVersion};
-use paseto_core::version::{Local, SealingMarker, Secret};
+use paseto_core::version::{Local, Secret};
 use paseto_test::{Bool, TestFile, eq_keys, read_test};
 use serde::Deserialize;
 
@@ -12,8 +12,8 @@ fn main() {
 
     let mut tests = vec![];
 
-    // add_all_tests::<paseto_v3::core::V3>("paseto-v3", &mut tests);
-    // add_all_tests::<paseto_v3_aws_lc::core::V3>("paseto-v3-aws-lc", &mut tests);
+    add_all_tests::<paseto_v3::core::V3>("paseto-v3", &mut tests);
+    add_all_tests::<paseto_v3_aws_lc::core::V3>("paseto-v3-aws-lc", &mut tests);
     add_all_tests::<paseto_v4::core::V4>("paseto-v4", &mut tests);
     add_all_tests::<paseto_v4_sodium::core::V4>("paseto-v4-sodium", &mut tests);
 
@@ -32,7 +32,7 @@ where
 
 #[derive(Deserialize)]
 #[serde(untagged, bound = "")]
-enum PbkwTest<V: PwWrapVersion, K: SealingMarker> {
+enum PbkwTest<V: PwWrapVersion, K: SealingKey> {
     #[serde(rename_all = "kebab-case")]
     Success {
         #[expect(unused)]
@@ -52,7 +52,7 @@ enum PbkwTest<V: PwWrapVersion, K: SealingMarker> {
     },
 }
 
-impl<V: PwWrapVersion, K: SealingMarker> PbkwTest<V, K>
+impl<V: PwWrapVersion, K: SealingKey> PbkwTest<V, K>
 where
     V::LocalKey: Send,
     K::Key<V>: Send,

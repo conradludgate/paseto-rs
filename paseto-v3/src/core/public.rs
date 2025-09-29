@@ -5,15 +5,15 @@ use alloc::vec::Vec;
 use digest::Digest;
 use p384::ecdsa::Signature;
 use paseto_core::PasetoError;
-use paseto_core::key::KeyKind;
+use paseto_core::key::KeyEncoding;
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
-use paseto_core::version::{Marker, Public};
+use paseto_core::version::Public;
 
 #[cfg(feature = "signing")]
 use super::SecretKey;
 use super::{PublicKey, V3};
 
-impl KeyKind for PublicKey {
+impl KeyEncoding for PublicKey {
     type Version = V3;
     type KeyType = Public;
 
@@ -32,7 +32,7 @@ impl KeyKind for PublicKey {
 }
 
 #[cfg(feature = "signing")]
-impl KeyKind for SecretKey {
+impl KeyEncoding for SecretKey {
     type Version = V3;
     type KeyType = paseto_core::version::Secret;
 
@@ -64,12 +64,12 @@ impl SecretKey {
 
 #[cfg(feature = "signing")]
 impl paseto_core::version::SealingVersion<Public> for V3 {
-    fn unsealing_key(key: &crate::SecretKey) -> crate::PublicKey {
-        crate::PublicKey::from_inner(PublicKey(*key.as_inner().0.verifying_key()))
+    fn unsealing_key(key: &SecretKey) -> PublicKey {
+        PublicKey(*key.0.verifying_key())
     }
 
-    fn random() -> Result<crate::SecretKey, PasetoError> {
-        SecretKey::random().map(crate::SecretKey::from_inner)
+    fn random() -> Result<SecretKey, PasetoError> {
+        SecretKey::random()
     }
 
     fn nonce() -> Result<Vec<u8>, PasetoError> {
@@ -77,7 +77,7 @@ impl paseto_core::version::SealingVersion<Public> for V3 {
     }
 
     fn dangerous_seal_with_nonce(
-        key: &crate::SecretKey,
+        key: &SecretKey,
         encoding: &'static str,
         mut payload: Vec<u8>,
         footer: &[u8],
@@ -85,14 +85,8 @@ impl paseto_core::version::SealingVersion<Public> for V3 {
     ) -> Result<Vec<u8>, PasetoError> {
         use p384::ecdsa::signature::DigestSigner;
 
-        let digest = preauth_public(
-            key.as_inner().0.verifying_key(),
-            encoding,
-            &payload,
-            footer,
-            aad,
-        );
-        let signature: Signature = key.as_inner().0.sign_digest(digest);
+        let digest = preauth_public(key.0.verifying_key(), encoding, &payload, footer, aad);
+        let signature: Signature = key.0.sign_digest(digest);
         let signature = signature.normalize_s().unwrap_or(signature);
 
         payload.extend_from_slice(&signature.to_bytes());
@@ -103,7 +97,7 @@ impl paseto_core::version::SealingVersion<Public> for V3 {
 
 impl paseto_core::version::UnsealingVersion<Public> for V3 {
     fn unseal<'a>(
-        key: &crate::PublicKey,
+        key: &PublicKey,
         encoding: &'static str,
         payload: &'a mut [u8],
         footer: &[u8],
@@ -117,13 +111,9 @@ impl paseto_core::version::UnsealingVersion<Public> for V3 {
 
         let signature =
             Signature::from_bytes(tag[..].into()).map_err(|_| PasetoError::InvalidToken)?;
-        let digest = preauth_public(&key.as_inner().0, encoding, cleartext, footer, aad);
-        DigestVerifier::<sha2::Sha384, Signature>::verify_digest(
-            &key.as_inner().0,
-            digest,
-            &signature,
-        )
-        .map_err(|_| PasetoError::CryptoError)?;
+        let digest = preauth_public(&key.0, encoding, cleartext, footer, aad);
+        DigestVerifier::<sha2::Sha384, Signature>::verify_digest(&key.0, digest, &signature)
+            .map_err(|_| PasetoError::CryptoError)?;
 
         Ok(cleartext)
     }
@@ -135,6 +125,7 @@ fn preauth_public(
     footer: &[u8],
     aad: &[u8],
 ) -> sha2::Sha384 {
+    use paseto_core::key::KeyType;
     struct Context(sha2::Sha384);
     impl WriteBytes for Context {
         fn write(&mut self, slice: &[u8]) {

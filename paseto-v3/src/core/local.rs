@@ -8,13 +8,14 @@ use generic_array::typenum::U48;
 use generic_array::{ArrayLength, GenericArray};
 use hmac::Mac;
 use paseto_core::PasetoError;
-use paseto_core::key::KeyKind;
+use paseto_core::key::KeyEncoding;
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
-use paseto_core::version::{Local, Marker};
+use paseto_core::version::Local;
 
 use super::{LocalKey, V3};
 
-impl KeyKind for LocalKey {
+#[cfg(feature = "decrypting")]
+impl KeyEncoding for LocalKey {
     type Version = V3;
     type KeyType = Local;
 
@@ -45,14 +46,14 @@ impl LocalKey {
 
 #[cfg(feature = "encrypting")]
 impl paseto_core::version::SealingVersion<Local> for V3 {
-    fn unsealing_key(key: &crate::LocalKey) -> crate::LocalKey {
-        crate::LocalKey::from_inner(LocalKey(key.as_inner().0))
+    fn unsealing_key(key: &LocalKey) -> LocalKey {
+        LocalKey(key.0)
     }
 
-    fn random() -> Result<crate::LocalKey, PasetoError> {
+    fn random() -> Result<LocalKey, PasetoError> {
         let mut bytes = [0; 32];
         getrandom::fill(&mut bytes).map_err(|_| PasetoError::CryptoError)?;
-        Ok(crate::LocalKey::from_inner(LocalKey(bytes)))
+        Ok(LocalKey(bytes))
     }
 
     fn nonce() -> Result<Vec<u8>, PasetoError> {
@@ -65,7 +66,7 @@ impl paseto_core::version::SealingVersion<Local> for V3 {
     }
 
     fn dangerous_seal_with_nonce(
-        key: &crate::LocalKey,
+        key: &LocalKey,
         encoding: &'static str,
         mut payload: Vec<u8>,
         footer: &[u8],
@@ -75,7 +76,7 @@ impl paseto_core::version::SealingVersion<Local> for V3 {
             .split_first_chunk_mut::<32>()
             .ok_or(PasetoError::InvalidToken)?;
 
-        let (mut cipher, mut mac) = key.as_inner().keys(nonce);
+        let (mut cipher, mut mac) = key.keys(nonce);
         cipher.apply_keystream(ciphertext);
         preauth_local(&mut mac, encoding, nonce, ciphertext, footer, aad);
         payload.extend_from_slice(&mac.finalize().into_bytes());
@@ -84,9 +85,10 @@ impl paseto_core::version::SealingVersion<Local> for V3 {
     }
 }
 
+#[cfg(feature = "decrypting")]
 impl paseto_core::version::UnsealingVersion<Local> for V3 {
     fn unseal<'a>(
-        key: &crate::LocalKey,
+        key: &LocalKey,
         encoding: &'static str,
         payload: &'a mut [u8],
         footer: &[u8],
@@ -104,7 +106,7 @@ impl paseto_core::version::UnsealingVersion<Local> for V3 {
             .split_first_chunk_mut::<32>()
             .ok_or(PasetoError::InvalidToken)?;
 
-        let (mut cipher, mut mac) = key.as_inner().keys(nonce);
+        let (mut cipher, mut mac) = key.keys(nonce);
         preauth_local(&mut mac, encoding, nonce, ciphertext, footer, aad);
         mac.verify_slice(tag)
             .map_err(|_| PasetoError::CryptoError)?;
@@ -133,6 +135,7 @@ fn preauth_local(
     footer: &[u8],
     aad: &[u8],
 ) {
+    use paseto_core::key::KeyType;
     struct Context<'a>(&'a mut hmac::Hmac<sha2::Sha384>);
     impl WriteBytes for Context<'_> {
         fn write(&mut self, slice: &[u8]) {

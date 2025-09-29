@@ -1,6 +1,12 @@
+//! Constant-time base64url decoding.
+//!
+//! <https://github.com/paseto-standard/paseto-spec/blob/master/docs/01-Protocol-Versions/Common.md#base64-encoding>.
+
 // Code taken from base64ct.
 // Licensed from the RustCrypto developers under Apache-2.0.
 // <https://github.com/RustCrypto/formats/blob/master/base64ct/LICENSE-APACHE>
+//
+// Modified to allow encoding directly into a `fmt::Formatter`.
 #![allow(unsafe_code)]
 
 use alloc::vec::Vec;

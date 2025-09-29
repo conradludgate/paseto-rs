@@ -1,94 +1,68 @@
 use alloc::vec::Vec;
 
-use blake2::Blake2bMac;
-use chacha20::XChaCha20;
 use cipher::StreamCipher;
 use digest::Mac;
 use generic_array::GenericArray;
-use generic_array::typenum::U32;
+use generic_array::sequence::Split;
+use generic_array::typenum::U48;
 use paseto_core::PasetoError;
 use paseto_core::paserk::PwWrapVersion;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout, Unaligned, big_endian};
 
-use super::V4;
+use super::V3;
 
-fn wrap_keys(pass: &[u8], prefix: &Prefix) -> Result<(XChaCha20, Blake2bMac<U32>), PasetoError> {
+fn wrap_keys(
+    pass: &[u8],
+    prefix: &Prefix,
+) -> Result<(ctr::Ctr64BE<aes::Aes256>, hmac::Hmac<sha2::Sha384>), PasetoError> {
     use cipher::KeyIvInit;
 
-    let mut key = [0u8; 32];
-    prefix
-        .params
-        .pbkdf()?
-        .hash_password_into(pass, &prefix.salt, &mut key)
-        .map_err(|_| PasetoError::CryptoError)?;
+    let key = pbkdf2::pbkdf2_array::<hmac::Hmac<sha2::Sha384>, 32>(
+        pass,
+        &prefix.salt,
+        prefix.params.iterations.get(),
+    )
+    .expect("HMAC accepts all password length inputs");
 
-    let ek = kdf(&key, 0xFF);
+    let (ek, _) = kdf(&key, 0xFF).split();
     let ak = kdf(&key, 0xFE);
 
-    let cipher = XChaCha20::new(&ek, (&prefix.nonce).into());
-    let mac = blake2::Blake2bMac::new_from_slice(&ak).expect("key should be valid");
+    let cipher = ctr::Ctr64BE::<aes::Aes256>::new(&ek, (&prefix.nonce).into());
+    let mac = hmac::Hmac::new_from_slice(&ak).expect("key should be valid");
     Ok((cipher, mac))
 }
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable, Unaligned)]
 #[repr(C)]
 struct Prefix {
-    salt: [u8; 16],
+    salt: [u8; 32],
     params: Params,
-    nonce: [u8; 24],
+    nonce: [u8; 16],
 }
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable, Unaligned)]
 #[repr(C)]
 struct Suffix {
-    tag: [u8; 32],
+    tag: [u8; 48],
 }
 
 #[derive(FromBytes, IntoBytes, KnownLayout, Immutable, Unaligned, Clone, Copy)]
 #[repr(C)]
 pub struct Params {
-    mem: big_endian::U64,
-    time: big_endian::U32,
-    para: big_endian::U32,
+    iterations: big_endian::U32,
 }
 
 impl Default for Params {
     fn default() -> Self {
         const {
             Self {
-                mem: big_endian::U64::new(argon2::Params::DEFAULT_M_COST as u64 * 1024),
-                time: big_endian::U32::new(argon2::Params::DEFAULT_T_COST),
-                para: big_endian::U32::new(argon2::Params::DEFAULT_P_COST),
+                iterations: big_endian::U32::new(100000),
             }
         }
     }
 }
 
-impl Params {
-    fn pbkdf(&self) -> Result<argon2::Argon2<'static>, PasetoError> {
-        let mem = self.mem.get();
-        if !mem.is_multiple_of(1024) {
-            return Err(PasetoError::InvalidKey);
-        }
-        let mem = mem / 1024;
-        let mem = u32::try_from(mem).map_err(|_| PasetoError::InvalidKey)?;
-
-        let params = argon2::ParamsBuilder::new()
-            .m_cost(mem)
-            .p_cost(self.para.get())
-            .t_cost(self.time.get())
-            .build()
-            .map_err(|_| PasetoError::InvalidKey)?;
-
-        Ok(argon2::Argon2::new(
-            argon2::Algorithm::Argon2id,
-            argon2::Version::V0x13,
-            params,
-        ))
-    }
-}
-
-impl PwWrapVersion for V4 {
+impl PwWrapVersion for V3 {
     type Params = Params;
 
     fn pw_wrap_key(
@@ -141,22 +115,22 @@ impl PwWrapVersion for V4 {
     }
 }
 
-fn kdf(key: &[u8], sep: u8) -> GenericArray<u8, U32> {
+fn kdf(key: &[u8], sep: u8) -> GenericArray<u8, U48> {
     use digest::Digest;
 
-    let mut mac = blake2::Blake2b::<U32>::default();
+    let mut mac = sha2::Sha384::default();
     mac.update([sep]);
     mac.update(key);
     mac.finalize()
 }
 
 fn auth(
-    mac: &mut blake2::Blake2bMac<U32>,
+    mac: &mut hmac::Hmac<sha2::Sha384>,
     header: &'static str,
     prefix: &Prefix,
     ciphertext: &[u8],
 ) {
-    mac.update(b"k4");
+    mac.update(b"k3");
     mac.update(header.as_bytes());
     mac.update(prefix.as_bytes());
     mac.update(ciphertext);

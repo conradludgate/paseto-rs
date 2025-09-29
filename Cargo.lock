@@ -1092,15 +1092,14 @@ dependencies = [
 
 [[package]]
 name = "paseto-core"
-version = "0.1.0-rc.5"
+version = "0.1.0-rc.6"
 dependencies = [
- "hashbrown 0.16.0",
  "serde_core",
 ]
 
 [[package]]
 name = "paseto-json"
-version = "0.1.0-rc.5"
+version = "0.1.0-rc.6"
 dependencies = [
  "jiff",
  "paseto-core",
@@ -1126,7 +1125,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v3"
-version = "0.1.0-rc.5"
+version = "0.1.0-rc.6"
 dependencies = [
  "aes",
  "cipher",
@@ -1141,22 +1140,24 @@ dependencies = [
  "paseto-json",
  "pbkdf2",
  "sha2",
+ "zerocopy",
 ]
 
 [[package]]
 name = "paseto-v3-aws-lc"
-version = "0.1.0-rc.5"
+version = "0.1.0-rc.6"
 dependencies = [
  "aws-lc-fips-sys",
  "aws-lc-rs",
  "aws-lc-sys",
  "paseto-core",
  "paseto-json",
+ "zerocopy",
 ]
 
 [[package]]
 name = "paseto-v4"
-version = "0.1.0-rc.5"
+version = "0.1.0-rc.6"
 dependencies = [
  "argon2",
  "blake2",
@@ -1176,7 +1177,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v4-sodium"
-version = "0.1.0-rc.5"
+version = "0.1.0-rc.6"
 dependencies = [
  "hex",
  "libsodium-rs",

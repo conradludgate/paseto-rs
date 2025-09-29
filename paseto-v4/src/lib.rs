@@ -1,7 +1,7 @@
 //! PASETO v4 (RustCrypto)
 //!
 //! ```
-//! use paseto_v4::{SignedToken, VerifiedToken, SecretKey, PublicKey};
+//! use paseto_v4::{SignedToken, UnsignedToken, SecretKey, PublicKey};
 //! use paseto_json::{RegisteredClaims, Time, HasExpiry, FromIssuer, ForSubject, Validate};
 //! use std::time::Duration;
 //!
@@ -15,7 +15,7 @@
 //!     .for_subject("conradludgate".to_string());
 //!
 //! // create and sign a new token
-//! let signed_token = VerifiedToken::new(claims).sign(&secret_key).unwrap();
+//! let signed_token = UnsignedToken::new(claims).sign(&secret_key).unwrap();
 //!
 //! // serialize the token.
 //! let token = signed_token.to_string();
@@ -51,24 +51,60 @@ pub mod core;
 pub use paseto_core::PasetoError;
 
 /// A token with publically readable data, but not yet verified
+#[cfg(feature = "verifying")]
 pub type SignedToken<M, F = ()> = paseto_core::SignedToken<core::V4, M, F>;
-/// A token with secret data
-pub type EncryptedToken<M, F = ()> = paseto_core::EncryptedToken<core::V4, M, F>;
-/// A [`SignedToken`] that has been verified
-pub type VerifiedToken<M, F = ()> = paseto_core::VerifiedToken<core::V4, M, F>;
-/// An [`EncryptedToken`] that has been decrypted
-pub type DecryptedToken<M, F = ()> = paseto_core::DecryptedToken<core::V4, M, F>;
 
-/// Private key used for [`encryption`](DecryptedToken::encrypt) and [`decryptiom`](EncryptedToken::decrypt)
+/// A token with secret data
+#[cfg(feature = "decrypting")]
+pub type EncryptedToken<M, F = ()> = paseto_core::EncryptedToken<core::V4, M, F>;
+
+/// A [`SignedToken`] that has been verified
+#[cfg(feature = "verifying")]
+pub type UnsignedToken<M, F = ()> = paseto_core::UnsignedToken<core::V4, M, F>;
+
+/// An [`EncryptedToken`] that has been decrypted
+#[cfg(feature = "decrypting")]
+pub type UnencryptedToken<M, F = ()> = paseto_core::UnencryptedToken<core::V4, M, F>;
+
+/// Private key used for [`encryption`](UnencryptedToken::encrypt) and [`decryptiom`](EncryptedToken::decrypt)
+#[cfg(feature = "decrypting")]
 pub type LocalKey = paseto_core::LocalKey<core::V4>;
+
 /// Public key used for signature [`verification`](SignedToken::verify)
+#[cfg(feature = "verifying")]
 pub type PublicKey = paseto_core::PublicKey<core::V4>;
-/// Private key used for token [`signing`](VerifiedToken::sign)
+
+/// Private key used for token [`signing`](UnsignedToken::sign)
+#[cfg(feature = "signing")]
 pub type SecretKey = paseto_core::SecretKey<core::V4>;
 
-/// A short ID for a key.
-pub type KeyId<K> = paseto_core::paserk::KeyId<core::V4, K>;
 /// A plaintext encoding of a key.
 pub type KeyText<K> = paseto_core::paserk::KeyText<core::V4, K>;
+
+/// A short ID for a key.
+#[cfg(feature = "id")]
+pub type KeyId<K> = paseto_core::paserk::KeyId<core::V4, K>;
+
 /// An asymmetrically encrypted [`LocalKey`].
+#[cfg(feature = "pke")]
 pub type SealedKey = paseto_core::paserk::SealedKey<core::V4>;
+
+/// An password encrypted [`LocalKey`].
+#[cfg(feature = "pbkw")]
+pub type PasswordWrappedLocalKey =
+    paseto_core::paserk::PasswordWrappedKey<core::V4, paseto_core::version::Local>;
+
+/// An password encrypted [`SecretKey`].
+#[cfg(all(feature = "pbkw", feature = "signing"))]
+pub type PasswordWrappedSecretKey =
+    paseto_core::paserk::PasswordWrappedKey<core::V4, paseto_core::version::Secret>;
+
+/// An password encrypted [`LocalKey`].
+#[cfg(feature = "pie-wrap")]
+pub type PieWrappedLocalKey =
+    paseto_core::paserk::PieWrappedKey<core::V4, paseto_core::version::Local>;
+
+/// An password encrypted [`SecretKey`].
+#[cfg(all(feature = "pie-wrap", feature = "signing"))]
+pub type PieWrappedSecretKey =
+    paseto_core::paserk::PieWrappedKey<core::V4, paseto_core::version::Secret>;

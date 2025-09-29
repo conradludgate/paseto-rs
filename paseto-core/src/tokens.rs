@@ -8,23 +8,17 @@ use crate::encodings::{Footer, Payload};
 use crate::key::Key;
 use crate::validation::Validate;
 use crate::version::{Local, Public};
-use crate::{LocalKey, PasetoError, PublicKey, SecretKey, version};
-
-/// A token with publically readable data, but not yet verified
-pub type SignedToken<V, M, F = ()> = SealedToken<V, version::Public, M, F>;
-/// A token with secret data
-pub type EncryptedToken<V, M, F = ()> = SealedToken<V, version::Local, M, F>;
-/// A [`SignedToken`] that has been verified
-pub type VerifiedToken<V, M, F = ()> = UnsealedToken<V, version::Public, M, F>;
-/// An [`EncryptedToken`] that has been decrypted
-pub type DecryptedToken<V, M, F = ()> = UnsealedToken<V, version::Local, M, F>;
+use crate::{
+    EncryptedToken, LocalKey, PasetoError, PublicKey, SecretKey, SignedToken, UnencryptedToken,
+    UnsignedToken, version,
+};
 
 /// An unsealed token.
 ///
 /// This represents a PASETO which has had signatures or encryption validated.
 /// Using one of the following aliases is suggested
-/// * [`VerifiedToken`] - A [`public`](version::Public) PASETO which has had signature validated.
-/// * [`DecryptedToken`] - A [`local`](version::Local) PASETO which has successfully been decrypted.
+/// * [`UnsignedToken`] - A [`public`](version::Public) PASETO which has had signature validated.
+/// * [`UnencryptedToken`] - A [`local`](version::Local) PASETO which has successfully been decrypted.
 ///
 /// This type is un-serializable as it isn't sealed. For that you will want [`SealedToken`].
 pub struct UnsealedToken<V, P, M, F = ()> {
@@ -103,11 +97,17 @@ where
     #[doc(alias = "verify")]
     pub fn unseal(
         mut self,
-        key: &Key<V, P::UnsealingMarker>,
+        key: &Key<V, P>,
         aad: &[u8],
         v: &impl Validate<Claims = M>,
     ) -> Result<UnsealedToken<V, P, M, F>, PasetoError> {
-        let cleartext = V::unseal(key, M::SUFFIX, &mut self.payload, &self.encoded_footer, aad)?;
+        let cleartext = V::unseal(
+            &key.0,
+            M::SUFFIX,
+            &mut self.payload,
+            &self.encoded_footer,
+            aad,
+        )?;
 
         let message = M::decode(cleartext).map_err(PasetoError::PayloadError)?;
 
@@ -135,7 +135,7 @@ where
     #[inline(always)]
     pub fn seal(
         self,
-        key: &Key<V, P::SealingMarker>,
+        key: &Key<V, P::SealingKey>,
         aad: &[u8],
     ) -> Result<SealedToken<V, P, M, F>, PasetoError> {
         self.dangerous_seal_with_nonce(key, aad, V::nonce()?)
@@ -147,7 +147,7 @@ where
     /// Do not use this method directly.
     pub fn dangerous_seal_with_nonce(
         self,
-        key: &Key<V, P::SealingMarker>,
+        key: &Key<V, P::SealingKey>,
         aad: &[u8],
         nonce: Vec<u8>,
     ) -> Result<SealedToken<V, P, M, F>, PasetoError> {
@@ -162,8 +162,8 @@ where
             .encode(&mut payload)
             .map_err(PasetoError::PayloadError)?;
 
-        let payload =
-            V::dangerous_seal_with_nonce(key, M::SUFFIX, payload, &footer, aad)?.into_boxed_slice();
+        let payload = V::dangerous_seal_with_nonce(&key.0, M::SUFFIX, payload, &footer, aad)?
+            .into_boxed_slice();
 
         Ok(SealedToken {
             payload,
@@ -188,7 +188,7 @@ where
         self,
         key: &LocalKey<V>,
         v: &impl Validate<Claims = M>,
-    ) -> Result<DecryptedToken<V, M, F>, PasetoError> {
+    ) -> Result<UnencryptedToken<V, M, F>, PasetoError> {
         self.decrypt_with_aad(key, &[], v)
     }
 
@@ -199,12 +199,12 @@ where
         key: &LocalKey<V>,
         aad: &[u8],
         v: &impl Validate<Claims = M>,
-    ) -> Result<DecryptedToken<V, M, F>, PasetoError> {
+    ) -> Result<UnencryptedToken<V, M, F>, PasetoError> {
         self.unseal(key, aad, v)
     }
 }
 
-impl<V, M, F> DecryptedToken<V, M, F>
+impl<V, M, F> UnencryptedToken<V, M, F>
 where
     V: version::SealingVersion<Local>,
     M: Payload,
@@ -239,7 +239,7 @@ where
         self,
         key: &PublicKey<V>,
         v: &impl Validate<Claims = M>,
-    ) -> Result<VerifiedToken<V, M, F>, PasetoError> {
+    ) -> Result<UnsignedToken<V, M, F>, PasetoError> {
         self.verify_with_aad(key, &[], v)
     }
 
@@ -250,12 +250,12 @@ where
         key: &PublicKey<V>,
         aad: &[u8],
         v: &impl Validate<Claims = M>,
-    ) -> Result<VerifiedToken<V, M, F>, PasetoError> {
+    ) -> Result<UnsignedToken<V, M, F>, PasetoError> {
         self.unseal(key, aad, v)
     }
 }
 
-impl<V, M, F> VerifiedToken<V, M, F>
+impl<V, M, F> UnsignedToken<V, M, F>
 where
     V: version::SealingVersion<Public>,
     M: Payload,

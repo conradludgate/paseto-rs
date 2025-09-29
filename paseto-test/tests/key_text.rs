@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::key::Key;
+use paseto_core::key::{Key, KeyType};
 use paseto_core::paserk::KeyText;
-use paseto_core::version::{Local, Marker, Public, Secret, Version};
+use paseto_core::version::{Local, Public, Secret, Version};
 use paseto_test::{Bool, TestFile, read_test};
 use serde::Deserialize;
 
@@ -33,7 +33,7 @@ where
 
 #[derive(Deserialize)]
 #[serde(untagged, bound = "")]
-enum KeyTest<V: Version, K: Marker> {
+enum KeyTest<V: Version, K: KeyType> {
     #[serde(rename_all = "kebab-case")]
     Success {
         #[expect(unused)]
@@ -63,7 +63,7 @@ enum KeyTest<V: Version, K: Marker> {
     },
 }
 
-impl<V: Version, K: Marker> KeyTest<V, K>
+impl<V: Version, K: KeyType> KeyTest<V, K>
 where
     K::Key<V>: Send + 'static,
 {
@@ -89,7 +89,7 @@ where
                     return Err("decode failed".into());
                 }
 
-                _ = paserk.decode()?;
+                let _: Key<V, K> = paserk.try_into()?;
 
                 Ok(())
             }
@@ -99,10 +99,12 @@ where
                 Ok(_) => Err(comment.into()),
                 Err(_) => Ok(()),
             },
-            KeyTest::KeyFailure { key, comment, .. } => match Key::<V, K>::from_raw_bytes(&key) {
-                Ok(_) => Err(comment.into()),
-                Err(_) => Ok(()),
-            },
+            KeyTest::KeyFailure { key, comment, .. } => {
+                match Key::try_from(KeyText::<V, K>::from_raw_bytes(&key)) {
+                    Ok(_) => Err(comment.into()),
+                    Err(_) => Ok(()),
+                }
+            }
         }
     }
 }

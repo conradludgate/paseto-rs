@@ -1,8 +1,9 @@
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::tokens::{DecryptedToken, EncryptedToken, SignedToken, VerifiedToken};
 use paseto_core::validation::NoValidation;
 use paseto_core::version::{Local, Public, SealingVersion, Version};
-use paseto_core::{LocalKey, PublicKey, SecretKey};
+use paseto_core::{
+    EncryptedToken, LocalKey, PublicKey, SecretKey, SignedToken, UnencryptedToken, UnsignedToken,
+};
 use paseto_json::Json;
 use paseto_test::{Bool, TestFile, read_test};
 use serde::Deserialize;
@@ -95,7 +96,7 @@ where
                 let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
                 assert_eq!(decrypted_token.claims.0, payload);
 
-                let token = DecryptedToken::<V, _>::new(decrypted_token.claims)
+                let token = UnencryptedToken::<V, _>::new(decrypted_token.claims)
                     .with_footer(decrypted_token.footer);
 
                 let token = token
@@ -155,7 +156,7 @@ where
                 let payload: serde_json::Value = serde_json::from_str(&payload).unwrap();
                 assert_eq!(token.claims.0, payload);
 
-                let token = VerifiedToken::<V, _>::new(token.claims).with_footer(token.footer);
+                let token = UnsignedToken::<V, _>::new(token.claims).with_footer(token.footer);
                 let token = token
                     .sign_with_aad(&secret_key, implicit_assertion.as_bytes())
                     .unwrap();

@@ -3,50 +3,57 @@ use core::fmt;
 use core::marker::PhantomData;
 
 use crate::PasetoError;
+use crate::key::KeyType;
 use crate::paserk::{IdVersion, KeyText};
-use crate::version::Marker;
 
 /// A short ID for a key.
-pub struct KeyId<V: IdVersion, K: Marker> {
+pub struct KeyId<V: IdVersion, K: KeyType> {
     pub(crate) id: [u8; 33],
     _key: PhantomData<(V, K)>,
 }
 
-impl<V: IdVersion, K: Marker> Copy for KeyId<V, K> {}
+impl<V: IdVersion, K: KeyType> KeyId<V, K> {
+    /// View the raw ID bytes for this key id.
+    pub fn as_bytes(&self) -> &[u8; 33] {
+        &self.id
+    }
+}
 
-impl<V: IdVersion, K: Marker> Clone for KeyId<V, K> {
+impl<V: IdVersion, K: KeyType> Copy for KeyId<V, K> {}
+
+impl<V: IdVersion, K: KeyType> Clone for KeyId<V, K> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<V: IdVersion, K: Marker> PartialEq for KeyId<V, K> {
+impl<V: IdVersion, K: KeyType> PartialEq for KeyId<V, K> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<V: IdVersion, K: Marker> PartialOrd for KeyId<V, K> {
+impl<V: IdVersion, K: KeyType> PartialOrd for KeyId<V, K> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<V: IdVersion, K: Marker> Eq for KeyId<V, K> {}
+impl<V: IdVersion, K: KeyType> Eq for KeyId<V, K> {}
 
-impl<V: IdVersion, K: Marker> Ord for KeyId<V, K> {
+impl<V: IdVersion, K: KeyType> Ord for KeyId<V, K> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.id.cmp(&other.id)
     }
 }
 
-impl<V: IdVersion, K: Marker> core::hash::Hash for KeyId<V, K> {
+impl<V: IdVersion, K: KeyType> core::hash::Hash for KeyId<V, K> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
 }
 
-impl<V: IdVersion, K: Marker> From<&KeyText<V, K>> for KeyId<V, K> {
+impl<V: IdVersion, K: KeyType> From<&KeyText<V, K>> for KeyId<V, K> {
     fn from(value: &KeyText<V, K>) -> Self {
         Self {
             id: V::hash_key(K::ID_HEADER, value.to_string().as_bytes()),
@@ -55,7 +62,7 @@ impl<V: IdVersion, K: Marker> From<&KeyText<V, K>> for KeyId<V, K> {
     }
 }
 
-impl<V: IdVersion, K: Marker> fmt::Display for KeyId<V, K> {
+impl<V: IdVersion, K: KeyType> fmt::Display for KeyId<V, K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(V::PASERK_HEADER)?;
         f.write_str(K::ID_HEADER)?;
@@ -63,7 +70,7 @@ impl<V: IdVersion, K: Marker> fmt::Display for KeyId<V, K> {
     }
 }
 
-impl<V: IdVersion, K: Marker> core::str::FromStr for KeyId<V, K> {
+impl<V: IdVersion, K: KeyType> core::str::FromStr for KeyId<V, K> {
     type Err = PasetoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -90,7 +97,7 @@ serde_str!(
     impl<V, K> KeyId<V, K>
     where
         V: IdVersion,
-        K: Marker,
+        K: KeyType,
     {
         fn expecting() {
             format_args!("a {}{} PASERK key id", V::PASERK_HEADER, K::ID_HEADER)

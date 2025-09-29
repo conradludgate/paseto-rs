@@ -10,7 +10,9 @@ use core::marker::PhantomData;
 use crate::tokens::SealedToken;
 use crate::{PasetoError, version};
 
+/// An infallible byte writer
 pub trait WriteBytes {
+    /// Write bytes
     fn write(&mut self, slice: &[u8]);
 }
 

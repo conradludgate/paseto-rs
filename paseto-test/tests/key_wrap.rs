@@ -2,9 +2,9 @@ use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
 use paseto_core::LocalKey;
-use paseto_core::key::Key;
+use paseto_core::key::{Key, SealingKey};
 use paseto_core::paserk::{PieWrapVersion, PieWrappedKey};
-use paseto_core::version::{Local, SealingMarker, Secret};
+use paseto_core::version::{Local, Secret};
 use paseto_test::{Bool, TestFile, eq_keys, read_test};
 use serde::Deserialize;
 
@@ -33,7 +33,7 @@ where
 
 #[derive(Deserialize)]
 #[serde(untagged, bound = "")]
-enum WrapTest<V: PieWrapVersion, K: SealingMarker> {
+enum WrapTest<V: PieWrapVersion, K: SealingKey> {
     #[serde(rename_all = "kebab-case")]
     Success {
         #[expect(unused)]
@@ -57,7 +57,7 @@ enum WrapTest<V: PieWrapVersion, K: SealingMarker> {
     },
 }
 
-impl<V: PieWrapVersion, K: SealingMarker> WrapTest<V, K>
+impl<V: PieWrapVersion, K: SealingKey> WrapTest<V, K>
 where
     V::LocalKey: Send,
     K::Key<V>: Send,

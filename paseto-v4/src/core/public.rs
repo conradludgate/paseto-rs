@@ -4,11 +4,11 @@ use alloc::vec::Vec;
 
 use ed25519_dalek::Signature;
 use paseto_core::PasetoError;
-use paseto_core::key::KeyKind;
+use paseto_core::key::{KeyEncoding, KeyType};
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
+use paseto_core::version::Public;
 #[cfg(feature = "signing")]
 use paseto_core::version::Secret;
-use paseto_core::version::{Marker, Public};
 
 #[cfg(feature = "signing")]
 use super::{PreAuthEncodeDigest, SecretKey};
@@ -25,7 +25,8 @@ impl Clone for super::SecretKey {
     }
 }
 
-impl KeyKind for PublicKey {
+#[cfg(feature = "verifying")]
+impl KeyEncoding for PublicKey {
     type Version = V4;
     type KeyType = Public;
 
@@ -41,7 +42,7 @@ impl KeyKind for PublicKey {
 }
 
 #[cfg(feature = "signing")]
-impl KeyKind for SecretKey {
+impl KeyEncoding for SecretKey {
     type Version = V4;
     type KeyType = Secret;
 
@@ -73,19 +74,16 @@ impl KeyKind for SecretKey {
 
 #[cfg(feature = "signing")]
 impl paseto_core::version::SealingVersion<Public> for V4 {
-    fn unsealing_key(key: &crate::SecretKey) -> crate::PublicKey {
-        crate::PublicKey::from_inner(PublicKey((&key.as_inner().1).into()))
+    fn unsealing_key(key: &SecretKey) -> PublicKey {
+        PublicKey((&key.1).into())
     }
 
-    fn random() -> Result<crate::SecretKey, PasetoError> {
-        {
-            let mut secret_key = [0; 32];
-            getrandom::fill(&mut secret_key).map_err(|_| PasetoError::CryptoError)?;
+    fn random() -> Result<SecretKey, PasetoError> {
+        let mut secret_key = [0; 32];
+        getrandom::fill(&mut secret_key).map_err(|_| PasetoError::CryptoError)?;
 
-            let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(&secret_key);
-            Ok(SecretKey(secret_key, esk))
-        }
-        .map(crate::SecretKey::from_inner)
+        let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(&secret_key);
+        Ok(SecretKey(secret_key, esk))
     }
 
     fn nonce() -> Result<Vec<u8>, PasetoError> {
@@ -93,21 +91,22 @@ impl paseto_core::version::SealingVersion<Public> for V4 {
     }
 
     fn dangerous_seal_with_nonce(
-        key: &crate::SecretKey,
+        key: &SecretKey,
         encoding: &'static str,
         mut payload: Vec<u8>,
         footer: &[u8],
         aad: &[u8],
     ) -> Result<Vec<u8>, PasetoError> {
-        let signature = preauth_secret(&key.as_inner().1, encoding, &payload, footer, aad);
+        let signature = preauth_secret(&key.1, encoding, &payload, footer, aad);
         payload.extend_from_slice(&signature.to_bytes());
         Ok(payload)
     }
 }
 
+#[cfg(feature = "verifying")]
 impl paseto_core::version::UnsealingVersion<Public> for V4 {
     fn unseal<'a>(
-        key: &crate::PublicKey,
+        key: &PublicKey,
         encoding: &'static str,
         payload: &'a mut [u8],
         footer: &[u8],
@@ -121,7 +120,6 @@ impl paseto_core::version::UnsealingVersion<Public> for V4 {
         let (cleartext, tag) = payload.split_at(len - 64);
         let signature = Signature::from_bytes(tag.try_into().unwrap());
         let verifier = key
-            .as_inner()
             .0
             .verify_stream(&signature)
             .map_err(|_| PasetoError::CryptoError)?;
