@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+#[cfg(feature = "encrypting")]
 use alloc::vec::Vec;
 
 use cipher::StreamCipher;
@@ -42,6 +43,7 @@ impl LocalKey {
     }
 }
 
+#[cfg(feature = "encrypting")]
 impl paseto_core::version::SealingVersion<Local> for V3 {
     fn unsealing_key(key: &crate::LocalKey) -> crate::LocalKey {
         crate::LocalKey::from_inner(LocalKey(key.as_inner().0))

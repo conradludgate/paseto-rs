@@ -1,23 +1,24 @@
 use alloc::boxed::Box;
+#[cfg(feature = "signing")]
 use alloc::vec::Vec;
 
-use generic_array::GenericArray;
-use p384::ecdsa::signature::{DigestSigner, DigestVerifier};
-use p384::ecdsa::{Signature, SigningKey, VerifyingKey};
+use digest::Digest;
+use p384::ecdsa::Signature;
 use paseto_core::PasetoError;
 use paseto_core::key::KeyKind;
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
-use paseto_core::version::{Marker, Public, Secret};
-use sha2::{Digest, Sha384};
+use paseto_core::version::{Marker, Public};
 
-use super::{PublicKey, SecretKey, V3};
+#[cfg(feature = "signing")]
+use super::SecretKey;
+use super::{PublicKey, V3};
 
 impl KeyKind for PublicKey {
     type Version = V3;
     type KeyType = Public;
 
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
-        VerifyingKey::from_sec1_bytes(bytes)
+        p384::ecdsa::VerifyingKey::from_sec1_bytes(bytes)
             .map(Self)
             .map_err(|_| PasetoError::InvalidKey)
     }
@@ -30,9 +31,10 @@ impl KeyKind for PublicKey {
     }
 }
 
+#[cfg(feature = "signing")]
 impl KeyKind for SecretKey {
     type Version = V3;
-    type KeyType = Secret;
+    type KeyType = paseto_core::version::Secret;
 
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
         if bytes.len() != 48 {
@@ -46,12 +48,13 @@ impl KeyKind for SecretKey {
     }
 }
 
+#[cfg(feature = "signing")]
 impl SecretKey {
     pub(crate) fn random() -> Result<Self, PasetoError> {
-        let mut bytes = GenericArray::default();
+        let mut bytes = generic_array::GenericArray::default();
         loop {
             getrandom::fill(&mut bytes).map_err(|_| PasetoError::CryptoError)?;
-            match SigningKey::from_bytes(&bytes).map(Self) {
+            match p384::ecdsa::SigningKey::from_bytes(&bytes).map(Self) {
                 Err(_) => continue,
                 Ok(key) => break Ok(key),
             }
@@ -59,6 +62,7 @@ impl SecretKey {
     }
 }
 
+#[cfg(feature = "signing")]
 impl paseto_core::version::SealingVersion<Public> for V3 {
     fn unsealing_key(key: &crate::SecretKey) -> crate::PublicKey {
         crate::PublicKey::from_inner(PublicKey(*key.as_inner().0.verifying_key()))
@@ -79,6 +83,8 @@ impl paseto_core::version::SealingVersion<Public> for V3 {
         footer: &[u8],
         aad: &[u8],
     ) -> Result<Vec<u8>, PasetoError> {
+        use p384::ecdsa::signature::DigestSigner;
+
         let digest = preauth_public(
             key.as_inner().0.verifying_key(),
             encoding,
@@ -103,6 +109,8 @@ impl paseto_core::version::UnsealingVersion<Public> for V3 {
         footer: &[u8],
         aad: &[u8],
     ) -> Result<&'a [u8], PasetoError> {
+        use p384::ecdsa::signature::DigestVerifier;
+
         let (cleartext, tag) = payload
             .split_last_chunk::<96>()
             .ok_or(PasetoError::InvalidToken)?;
@@ -110,20 +118,24 @@ impl paseto_core::version::UnsealingVersion<Public> for V3 {
         let signature =
             Signature::from_bytes(tag[..].into()).map_err(|_| PasetoError::InvalidToken)?;
         let digest = preauth_public(&key.as_inner().0, encoding, cleartext, footer, aad);
-        DigestVerifier::<Sha384, Signature>::verify_digest(&key.as_inner().0, digest, &signature)
-            .map_err(|_| PasetoError::CryptoError)?;
+        DigestVerifier::<sha2::Sha384, Signature>::verify_digest(
+            &key.as_inner().0,
+            digest,
+            &signature,
+        )
+        .map_err(|_| PasetoError::CryptoError)?;
 
         Ok(cleartext)
     }
 }
 fn preauth_public(
-    key: &VerifyingKey,
+    key: &p384::ecdsa::VerifyingKey,
     encoding: &'static str,
     cleartext: &[u8],
     footer: &[u8],
     aad: &[u8],
-) -> Sha384 {
-    struct Context(Sha384);
+) -> sha2::Sha384 {
+    struct Context(sha2::Sha384);
     impl WriteBytes for Context {
         fn write(&mut self, slice: &[u8]) {
             self.0.update(slice)
@@ -132,7 +144,7 @@ fn preauth_public(
 
     let key = key.to_encoded_point(true);
 
-    let mut ctx = Context(Sha384::new());
+    let mut ctx = Context(sha2::Sha384::new());
     pre_auth_encode(
         [
             &[key.as_bytes()],
