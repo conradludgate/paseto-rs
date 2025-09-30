@@ -8,10 +8,7 @@ use paseto_core::version::{Public, Secret};
 use super::{PublicKey, SecretKey, V3};
 use crate::lc::{Signature, SigningKey, VerifyingKey};
 
-impl KeyEncoding for PublicKey {
-    type Version = V3;
-    type KeyType = Public;
-
+impl KeyEncoding<V3, Public> for PublicKey {
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
         let pk = VerifyingKey::from_sec1_bytes(bytes)?;
         Ok(PublicKey(pk))
@@ -21,10 +18,7 @@ impl KeyEncoding for PublicKey {
     }
 }
 
-impl KeyEncoding for SecretKey {
-    type Version = V3;
-    type KeyType = Secret;
-
+impl KeyEncoding<V3, Secret> for SecretKey {
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
         if bytes.len() != 48 {
             return Err(PasetoError::InvalidKey);

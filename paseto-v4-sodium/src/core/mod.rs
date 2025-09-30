@@ -24,6 +24,8 @@ impl paseto_core::version::Version for V4 {
     type LocalKey = LocalKey;
     type PublicKey = PublicKey;
     type SecretKey = SecretKey;
+    type PkeSecretKey = SecretKey;
+    type PkePublicKey = PublicKey;
 }
 
 impl paseto_core::paserk::IdVersion for V4 {

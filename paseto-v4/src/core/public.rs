@@ -26,10 +26,7 @@ impl Clone for super::SecretKey {
 }
 
 #[cfg(feature = "verifying")]
-impl KeyEncoding for PublicKey {
-    type Version = V4;
-    type KeyType = Public;
-
+impl KeyEncoding<V4, Public> for PublicKey {
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
         let key = bytes.try_into().map_err(|_| PasetoError::InvalidKey)?;
         ed25519_dalek::VerifyingKey::from_bytes(&key)
@@ -42,10 +39,7 @@ impl KeyEncoding for PublicKey {
 }
 
 #[cfg(feature = "signing")]
-impl KeyEncoding for SecretKey {
-    type Version = V4;
-    type KeyType = Secret;
-
+impl KeyEncoding<V4, Secret> for SecretKey {
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
         let (secret_key, verifying_key) = bytes
             .split_first_chunk::<32>()
@@ -53,7 +47,7 @@ impl KeyEncoding for SecretKey {
 
         let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(secret_key);
 
-        let verifying_key = PublicKey::decode(verifying_key)?;
+        let verifying_key = <PublicKey as KeyEncoding<V4, Public>>::decode(verifying_key)?;
         let pubkey = ed25519_dalek::VerifyingKey::from(&esk);
 
         if pubkey != verifying_key.0 {

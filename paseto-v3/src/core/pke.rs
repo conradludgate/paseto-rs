@@ -5,12 +5,32 @@ use cipher::StreamCipher;
 use generic_array::sequence::Split;
 use hmac::Mac;
 use paseto_core::PasetoError;
-use paseto_core::paserk::PkeVersion;
+use paseto_core::key::KeyEncoding;
+use paseto_core::paserk::{PkeSealingVersion, PkeUnsealingVersion};
+use paseto_core::version::{PkePublic, PkeSecret, Public, Secret};
 use sha2::Digest;
 
 use super::{LocalKey, PublicKey, SecretKey, V3};
 
-impl PkeVersion for V3 {
+impl KeyEncoding<V3, PkePublic> for PublicKey {
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        KeyEncoding::<V3, Public>::decode(bytes)
+    }
+    fn encode(&self) -> Box<[u8]> {
+        KeyEncoding::<V3, Public>::encode(self)
+    }
+}
+
+impl KeyEncoding<V3, PkeSecret> for SecretKey {
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        KeyEncoding::<V3, Secret>::decode(bytes)
+    }
+    fn encode(&self) -> Box<[u8]> {
+        KeyEncoding::<V3, Secret>::encode(self)
+    }
+}
+
+impl PkeSealingVersion for V3 {
     fn seal_key(sealing_key: &PublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
         use cipher::KeyIvInit;
         use p384::EncodedPoint;
@@ -54,7 +74,9 @@ impl PkeVersion for V3 {
 
         Ok(output.into_boxed_slice())
     }
+}
 
+impl PkeUnsealingVersion for V3 {
     fn unseal_key(
         unsealing_key: &SecretKey,
         mut key_data: Box<[u8]>,

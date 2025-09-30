@@ -3,19 +3,37 @@ use core::fmt;
 use core::marker::PhantomData;
 
 use crate::key::Key;
-use crate::paserk::PkeVersion;
-use crate::{LocalKey, PasetoError, PublicKey, SecretKey};
+use crate::version::{PkePublic, PkeSecret, Version};
+use crate::{LocalKey, PasetoError};
+
+/// This PASETO implementation allows encrypting keys using a [`PublicKey`](crate::PublicKey)
+pub trait PkeSealingVersion: Version {
+    /// Seal the key using the public key
+    fn seal_key(
+        sealing_key: &Self::PkePublicKey,
+        key: Self::LocalKey,
+    ) -> Result<Box<[u8]>, PasetoError>;
+}
+
+/// This PASETO implementation allows decrypting keys using a [`SecretKey`](crate::SecretKey)
+pub trait PkeUnsealingVersion: Version {
+    /// Unseal the key using the secret key
+    fn unseal_key(
+        sealing_key: &Self::PkeSecretKey,
+        key_data: Box<[u8]>,
+    ) -> Result<Self::LocalKey, PasetoError>;
+}
 
 /// An asymmetrically encrypted [`LocalKey`].
 ///
 /// * Encrypted using [`LocalKey::seal`]
 /// * Decrypted using [`SealedKey::unseal`]
-pub struct SealedKey<V: PkeVersion> {
+pub struct SealedKey<V: Version> {
     key_data: Box<[u8]>,
     _version: PhantomData<V>,
 }
 
-impl<V: PkeVersion> Clone for SealedKey<V> {
+impl<V: Version> Clone for SealedKey<V> {
     fn clone(&self) -> Self {
         Self {
             key_data: self.key_data.clone(),
@@ -24,7 +42,7 @@ impl<V: PkeVersion> Clone for SealedKey<V> {
     }
 }
 
-impl<V: PkeVersion> fmt::Display for SealedKey<V> {
+impl<V: Version> fmt::Display for SealedKey<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(V::PASERK_HEADER)?;
         f.write_str(".seal.")?;
@@ -32,7 +50,7 @@ impl<V: PkeVersion> fmt::Display for SealedKey<V> {
     }
 }
 
-impl<V: PkeVersion> core::str::FromStr for SealedKey<V> {
+impl<V: Version> core::str::FromStr for SealedKey<V> {
     type Err = PasetoError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -48,9 +66,9 @@ impl<V: PkeVersion> core::str::FromStr for SealedKey<V> {
     }
 }
 
-impl<V: PkeVersion> LocalKey<V> {
+impl<V: PkeSealingVersion> LocalKey<V> {
     /// Encrypt the key such that it can only be decrypted by the resspective secret key.
-    pub fn seal(self, with: &PublicKey<V>) -> Result<SealedKey<V>, PasetoError> {
+    pub fn seal(self, with: &Key<V, PkePublic>) -> Result<SealedKey<V>, PasetoError> {
         V::seal_key(&with.0, self.0).map(|key_data| SealedKey {
             key_data,
             _version: PhantomData,
@@ -58,9 +76,9 @@ impl<V: PkeVersion> LocalKey<V> {
     }
 }
 
-impl<V: PkeVersion> SealedKey<V> {
+impl<V: PkeUnsealingVersion> SealedKey<V> {
     /// Decrypt the sealed key.
-    pub fn unseal(self, with: &SecretKey<V>) -> Result<LocalKey<V>, PasetoError> {
+    pub fn unseal(self, with: &Key<V, PkeSecret>) -> Result<LocalKey<V>, PasetoError> {
         V::unseal_key(&with.0, self.key_data).map(Key)
     }
 }
@@ -68,7 +86,7 @@ impl<V: PkeVersion> SealedKey<V> {
 serde_str!(
     impl<V> SealedKey<V>
     where
-        V: PkeVersion,
+        V: PkeSealingVersion,
     {
         fn expecting() {
             format_args!("a {}.seal. PASERK sealed key", V::PASERK_HEADER)

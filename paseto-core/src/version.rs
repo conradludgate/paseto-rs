@@ -14,11 +14,16 @@ pub trait Version: Send + Sync + Sized + 'static {
     const PASERK_HEADER: &'static str = "k3";
 
     /// A symmetric key used to encrypt and decrypt tokens.
-    type LocalKey: KeyEncoding<Version = Self, KeyType = Local>;
+    type LocalKey: KeyEncoding<Self, Local>;
     /// An asymmetric key used to validate token signatures.
-    type PublicKey: KeyEncoding<Version = Self, KeyType = Public>;
+    type PublicKey: KeyEncoding<Self, Public>;
     /// An asymmetric key used to create token signatures.
-    type SecretKey: KeyEncoding<Version = Self, KeyType = Secret>;
+    type SecretKey: KeyEncoding<Self, Secret>;
+
+    /// A asymmetric key used to encrypt keys.
+    type PkePublicKey: KeyEncoding<Self, PkePublic>;
+    /// A asymmetric key used to decrypt keys.
+    type PkeSecretKey: KeyEncoding<Self, PkeSecret>;
 }
 
 type SealingKeyInner<V, P> = KeyInner<V, <P as Purpose>::SealingKey>;
@@ -65,10 +70,19 @@ pub struct Public;
 /// Marks a key as symmetric and tokens as encrypted
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Local;
+/// Marks a key as secret for unsealing keys
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PkeSecret;
+/// Marks a key as public for sealing keys
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PkePublic;
 
 impl Sealed for Secret {}
 impl Sealed for Public {}
 impl Sealed for Local {}
+
+impl Sealed for PkeSecret {}
+impl Sealed for PkePublic {}
 
 /// A marker for [`Public`] and [`Local`], used for token encodings.
 pub trait Purpose: KeyType {

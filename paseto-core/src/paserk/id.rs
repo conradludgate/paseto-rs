@@ -4,7 +4,14 @@ use core::marker::PhantomData;
 
 use crate::PasetoError;
 use crate::key::KeyType;
-use crate::paserk::{IdVersion, KeyText};
+use crate::paserk::KeyText;
+use crate::version::Version;
+
+/// This PASETO implementation allows extracting key ids
+pub trait IdVersion: Version {
+    /// How to hash some keydata for creating [`KeyId`]
+    fn hash_key(key_header: &'static str, key_data: &[u8]) -> [u8; 33];
+}
 
 /// A short ID for a key.
 pub struct KeyId<V: IdVersion, K: KeyType> {

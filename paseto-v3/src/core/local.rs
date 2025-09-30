@@ -15,10 +15,7 @@ use paseto_core::version::Local;
 use super::{LocalKey, V3};
 
 #[cfg(feature = "decrypting")]
-impl KeyEncoding for LocalKey {
-    type Version = V3;
-    type KeyType = Local;
-
+impl KeyEncoding<V3, Local> for LocalKey {
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
         bytes
             .try_into()

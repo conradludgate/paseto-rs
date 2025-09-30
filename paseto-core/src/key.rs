@@ -7,7 +7,7 @@ use core::marker::PhantomData;
 
 use crate::paserk::{IdVersion, KeyId, KeyText};
 use crate::sealed::Sealed;
-use crate::version::{Local, Public, SealingVersion, Secret, Version};
+use crate::version::{Local, PkePublic, PkeSecret, Public, SealingVersion, Secret, Version};
 use crate::{LocalKey, PasetoError, PublicKey, SecretKey};
 
 pub(crate) type KeyInner<V, K> = <K as KeyType>::Key<V>;
@@ -71,7 +71,7 @@ pub trait KeyType: Send + Sync + Sealed + Sized + 'static {
     const ID_HEADER: &'static str;
 
     /// The key to extract from the version.
-    type Key<V: Version>: KeyEncoding<Version = V, KeyType = Self>;
+    type Key<V: Version>: KeyEncoding<V, Self>;
 }
 
 /// A marker for [`Secret`] and [`Local`] keys, used for signing and encrypting tokens.
@@ -111,13 +111,22 @@ impl SealingKey for Local {
     const PW_WRAP_HEADER: &'static str = ".local-pw.";
 }
 
-/// Defines a PASETO key encoding and decoding
-pub trait KeyEncoding: Sized {
-    /// The version of PASETO this key is bound to.
-    type Version: Version;
-    /// The kind of key, [`Local`], [`Public`], or [`Secret`].
-    type KeyType: KeyType;
+impl KeyType for PkeSecret {
+    const HEADER: &'static str = ".secret.";
+    const ID_HEADER: &'static str = ".sid.";
 
+    type Key<V: Version> = V::PkeSecretKey;
+}
+
+impl KeyType for PkePublic {
+    const HEADER: &'static str = ".public.";
+    const ID_HEADER: &'static str = ".pid.";
+
+    type Key<V: Version> = V::PkePublicKey;
+}
+
+/// Defines a PASETO key encoding and decoding
+pub trait KeyEncoding<V: Version, K: KeyType>: Sized {
     /// Encode the key into bytes.
     fn encode(&self) -> Box<[u8]>;
     /// Decode the key from bytes.
@@ -127,10 +136,7 @@ pub trait KeyEncoding: Sized {
 /// An unimplemented key. Useful if you don't want to implement some of the PASETO operations.
 pub struct Unimplemented<V: Version, K: KeyType>(Infallible, PhantomData<(V, K)>);
 
-impl<V: Version, K: KeyType> KeyEncoding for Unimplemented<V, K> {
-    type Version = V;
-    type KeyType = K;
-
+impl<V: Version, K: KeyType> KeyEncoding<V, K> for Unimplemented<V, K> {
     fn encode(&self) -> Box<[u8]> {
         match self.0 {}
     }

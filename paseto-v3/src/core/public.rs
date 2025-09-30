@@ -13,10 +13,7 @@ use paseto_core::version::Public;
 use super::SecretKey;
 use super::{PublicKey, V3};
 
-impl KeyEncoding for PublicKey {
-    type Version = V3;
-    type KeyType = Public;
-
+impl KeyEncoding<V3, Public> for PublicKey {
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
         p384::ecdsa::VerifyingKey::from_sec1_bytes(bytes)
             .map(Self)
@@ -32,10 +29,7 @@ impl KeyEncoding for PublicKey {
 }
 
 #[cfg(feature = "signing")]
-impl KeyEncoding for SecretKey {
-    type Version = V3;
-    type KeyType = paseto_core::version::Secret;
-
+impl KeyEncoding<V3, paseto_core::version::Secret> for SecretKey {
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
         if bytes.len() != 48 {
             return Err(PasetoError::InvalidKey);

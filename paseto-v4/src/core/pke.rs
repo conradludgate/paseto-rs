@@ -6,11 +6,31 @@ use curve25519_dalek::EdwardsPoint;
 use digest::Mac;
 use generic_array::typenum::U32;
 use paseto_core::PasetoError;
-use paseto_core::paserk::PkeVersion;
+use paseto_core::key::KeyEncoding;
+use paseto_core::paserk::{PkeSealingVersion, PkeUnsealingVersion};
+use paseto_core::version::{PkePublic, PkeSecret, Public, Secret};
 
 use super::{LocalKey, PublicKey, SecretKey, V4};
 
-impl PkeVersion for V4 {
+impl KeyEncoding<V4, PkePublic> for PublicKey {
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        KeyEncoding::<V4, Public>::decode(bytes)
+    }
+    fn encode(&self) -> Box<[u8]> {
+        KeyEncoding::<V4, Public>::encode(self)
+    }
+}
+
+impl KeyEncoding<V4, PkeSecret> for SecretKey {
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        KeyEncoding::<V4, Secret>::decode(bytes)
+    }
+    fn encode(&self) -> Box<[u8]> {
+        KeyEncoding::<V4, Secret>::encode(self)
+    }
+}
+
+impl PkeSealingVersion for V4 {
     fn seal_key(sealing_key: &PublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
         use cipher::KeyIvInit;
         use curve25519_dalek::edwards::CompressedEdwardsY;
@@ -68,7 +88,9 @@ impl PkeVersion for V4 {
 
         Ok(output.into_boxed_slice())
     }
+}
 
+impl PkeUnsealingVersion for V4 {
     fn unseal_key(
         unsealing_key: &SecretKey,
         mut key_data: Box<[u8]>,

@@ -1,10 +1,34 @@
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 use core::fmt;
 use core::marker::PhantomData;
 
 use crate::PasetoError;
 use crate::key::{Key, KeyEncoding, SealingKey};
-use crate::paserk::PwWrapVersion;
+use crate::version::Version;
+
+/// This PASETO implementation allows encrypting keys using a password
+pub trait PwWrapVersion: Version {
+    type Params: Default;
+
+    /// Wrap the key using a password
+    fn pw_wrap_key(
+        header: &'static str,
+        pass: &[u8],
+        params: &Self::Params,
+        key_data: Vec<u8>,
+    ) -> Result<Vec<u8>, PasetoError>;
+
+    /// Extract the params from the
+    fn get_params(key_data: &[u8]) -> Result<Self::Params, PasetoError>;
+
+    /// Unwrap the key using a password
+    fn pw_unwrap_key<'key>(
+        header: &'static str,
+        pass: &[u8],
+        key_data: &'key mut [u8],
+    ) -> Result<&'key [u8], PasetoError>;
+}
 
 /// An password encrypted [`Key`].
 ///

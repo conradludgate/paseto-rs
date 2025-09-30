@@ -1,8 +1,10 @@
 use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::paserk::{PkeVersion, SealedKey};
-use paseto_core::{LocalKey, PublicKey, SecretKey};
+use paseto_core::LocalKey;
+use paseto_core::key::Key;
+use paseto_core::paserk::{PkeSealingVersion, PkeUnsealingVersion, SealedKey};
+use paseto_core::version::{PkePublic, PkeSecret, Version};
 use paseto_test::{Bool, TestFile, eq_keys, read_test};
 use serde::Deserialize;
 
@@ -21,15 +23,15 @@ fn main() {
 
 #[derive(Deserialize)]
 #[serde(untagged, bound = "")]
-enum SealTest<V: PkeVersion> {
+enum SealTest<V: Version> {
     #[serde(rename_all = "kebab-case")]
     Success {
         #[expect(unused)]
         expect_fail: Bool<false>,
         #[serde(deserialize_with = "paseto_test::deserialize_key")]
-        sealing_secret_key: SecretKey<V>,
+        sealing_secret_key: Key<V, PkeSecret>,
         #[serde(deserialize_with = "paseto_test::deserialize_key")]
-        sealing_public_key: PublicKey<V>,
+        sealing_public_key: Key<V, PkePublic>,
         #[serde(deserialize_with = "paseto_test::deserialize_key")]
         unsealed: LocalKey<V>,
         paserk: String,
@@ -40,18 +42,18 @@ enum SealTest<V: PkeVersion> {
         expect_fail: Bool<true>,
         comment: String,
         #[serde(deserialize_with = "paseto_test::deserialize_key")]
-        sealing_secret_key: SecretKey<V>,
+        sealing_secret_key: Key<V, PkeSecret>,
         #[expect(unused)]
         unsealed: (),
         paserk: String,
     },
 }
 
-impl<V: PkeVersion + 'static> SealTest<V>
+impl<V: PkeUnsealingVersion + PkeSealingVersion + 'static> SealTest<V>
 where
     V::LocalKey: Send,
-    V::PublicKey: Send,
-    V::SecretKey: Send,
+    V::PkePublicKey: Send,
+    V::PkeSecretKey: Send,
 {
     fn add_tests(name: &str, tests: &mut Vec<Trial>) {
         let test_file: TestFile<Self> = read_test(&format!("{}.seal.json", V::PASERK_HEADER,));

@@ -4,10 +4,30 @@ use aws_lc_rs::digest::{self, SHA384};
 use aws_lc_rs::hmac::{self, HMAC_SHA384};
 use aws_lc_rs::iv::FixedLength;
 use paseto_core::PasetoError;
-use paseto_core::paserk::PkeVersion;
+use paseto_core::key::KeyEncoding;
+use paseto_core::paserk::{PkeSealingVersion, PkeUnsealingVersion};
+use paseto_core::version::{PkePublic, PkeSecret, Public, Secret};
 
 use super::{Cipher, LocalKey, PublicKey, SecretKey, V3};
 use crate::lc::VerifyingKey;
+
+impl KeyEncoding<V3, PkePublic> for PublicKey {
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        KeyEncoding::<V3, Public>::decode(bytes)
+    }
+    fn encode(&self) -> Box<[u8]> {
+        KeyEncoding::<V3, Public>::encode(self)
+    }
+}
+
+impl KeyEncoding<V3, PkeSecret> for SecretKey {
+    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+        KeyEncoding::<V3, Secret>::decode(bytes)
+    }
+    fn encode(&self) -> Box<[u8]> {
+        KeyEncoding::<V3, Secret>::encode(self)
+    }
+}
 
 fn seal_keys(
     xk: &[u8; 48],
@@ -39,7 +59,7 @@ fn seal_keys(
     Ok((Cipher(key, iv), mac))
 }
 
-impl PkeVersion for V3 {
+impl PkeSealingVersion for V3 {
     fn seal_key(sealing_key: &PublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
         let pk = sealing_key.0.compressed_pub_key();
 
@@ -66,7 +86,9 @@ impl PkeVersion for V3 {
 
         Ok(output.into_boxed_slice())
     }
+}
 
+impl PkeUnsealingVersion for V3 {
     fn unseal_key(
         unsealing_key: &SecretKey,
         mut key_data: Box<[u8]>,

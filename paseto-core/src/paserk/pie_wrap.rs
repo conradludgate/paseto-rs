@@ -1,10 +1,28 @@
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 use core::fmt;
 use core::marker::PhantomData;
 
 use crate::key::{Key, KeyEncoding, SealingKey};
-use crate::paserk::PieWrapVersion;
+use crate::version::Version;
 use crate::{LocalKey, PasetoError};
+
+/// This PASETO implementation allows encrypting keys using a [`LocalKey`](crate::LocalKey)
+pub trait PieWrapVersion: Version {
+    /// Wrap the key
+    fn pie_wrap_key(
+        header: &'static str,
+        wrapping_key: &Self::LocalKey,
+        key_data: Vec<u8>,
+    ) -> Result<Vec<u8>, PasetoError>;
+
+    /// Unwrap the key
+    fn pie_unwrap_key<'key>(
+        header: &'static str,
+        wrapping_key: &Self::LocalKey,
+        key_data: &'key mut [u8],
+    ) -> Result<&'key [u8], PasetoError>;
+}
 
 /// An symmetrically encrypted [`Key`].
 ///

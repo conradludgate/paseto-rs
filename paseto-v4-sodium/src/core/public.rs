@@ -6,10 +6,7 @@ use paseto_core::version::{Public, Secret};
 
 use super::{PublicKey, SecretKey, V4};
 
-impl KeyEncoding for PublicKey {
-    type Version = V4;
-    type KeyType = Public;
-
+impl KeyEncoding<V4, Public> for PublicKey {
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
         crypto_sign::PublicKey::from_bytes(bytes)
             .map(Self)
@@ -20,10 +17,7 @@ impl KeyEncoding for PublicKey {
     }
 }
 
-impl KeyEncoding for SecretKey {
-    type Version = V4;
-    type KeyType = Secret;
-
+impl KeyEncoding<V4, Secret> for SecretKey {
     fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
         crypto_sign::SecretKey::from_bytes(bytes)
             .map(Self)

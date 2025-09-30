@@ -48,6 +48,18 @@ impl version::Version for V4 {
 
     #[cfg(not(feature = "verifying"))]
     type PublicKey = paseto_core::key::Unimplemented<Self, version::Public>;
+
+    #[cfg(feature = "pke")]
+    type PkeSecretKey = SecretKey;
+
+    #[cfg(not(feature = "pke"))]
+    type PkeSecretKey = paseto_core::key::Unimplemented<Self, version::Secret>;
+
+    #[cfg(feature = "pke")]
+    type PkePublicKey = PublicKey;
+
+    #[cfg(not(feature = "pke"))]
+    type PkePublicKey = paseto_core::key::Unimplemented<Self, version::Public>;
 }
 
 #[cfg(feature = "id")]
