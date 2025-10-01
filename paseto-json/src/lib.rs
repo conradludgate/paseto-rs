@@ -259,13 +259,27 @@ impl serde_core::Serialize for RegisteredClaims {
         S: Serializer,
     {
         let mut state = s.serialize_struct("RegisteredClaims", 7)?;
-        state.serialize_field("iss", &self.iss)?;
-        state.serialize_field("sub", &self.sub)?;
-        state.serialize_field("aud", &self.aud)?;
-        state.serialize_field("exp", &self.exp)?;
-        state.serialize_field("nbf", &self.nbf)?;
-        state.serialize_field("iat", &self.iat)?;
-        state.serialize_field("jti", &self.jti)?;
+        if let Some(x) = &self.iss {
+            state.serialize_field("iss", &x)?;
+        }
+        if let Some(x) = &self.sub {
+            state.serialize_field("sub", &x)?;
+        }
+        if let Some(x) = &self.aud {
+            state.serialize_field("aud", &x)?;
+        }
+        if let Some(x) = &self.exp {
+            state.serialize_field("exp", &x)?;
+        }
+        if let Some(x) = &self.nbf {
+            state.serialize_field("nbf", &x)?;
+        }
+        if let Some(x) = &self.iat {
+            state.serialize_field("iat", &x)?;
+        }
+        if let Some(x) = &self.jti {
+            state.serialize_field("jti", &x)?;
+        }
         state.end()
     }
 }

@@ -7,6 +7,7 @@ members = [
     "paseto-v4",
     "paseto-v4-sodium",
     "paseto-test",
+    "paseto-bench",
 ]
 resolver = "3"
 
