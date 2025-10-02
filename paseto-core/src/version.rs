@@ -3,7 +3,7 @@
 use alloc::vec::Vec;
 
 use crate::PasetoError;
-use crate::key::{KeyEncoding, KeyInner, KeyType, SealingKey};
+use crate::key::{HasKey, KeyInner, KeyType, SealingKey};
 use crate::sealed::Sealed;
 
 /// An implementation of the PASETO cryptographic schemes.
@@ -12,24 +12,12 @@ pub trait Version: Send + Sync + Sized + 'static {
     const HEADER: &'static str;
     /// Header for PASERK
     const PASERK_HEADER: &'static str = "k3";
-
-    /// A symmetric key used to encrypt and decrypt tokens.
-    type LocalKey: KeyEncoding<Self, Local>;
-    /// An asymmetric key used to validate token signatures.
-    type PublicKey: KeyEncoding<Self, Public>;
-    /// An asymmetric key used to create token signatures.
-    type SecretKey: KeyEncoding<Self, Secret>;
-
-    /// A asymmetric key used to encrypt keys.
-    type PkePublicKey: KeyEncoding<Self, PkePublic>;
-    /// A asymmetric key used to decrypt keys.
-    type PkeSecretKey: KeyEncoding<Self, PkeSecret>;
 }
 
 type SealingKeyInner<V, P> = KeyInner<V, <P as Purpose>::SealingKey>;
 
 /// This PASETO implementation can decrypt/verify tokens.
-pub trait UnsealingVersion<P: Purpose>: Version {
+pub trait UnsealingVersion<P: Purpose>: HasKey<P> {
     /// Do not call this method directly. Use [`SealedToken::unseal`](crate::tokens::SealedToken::unseal) instead.
     fn unseal<'a>(
         key: &KeyInner<Self, P>,
@@ -41,7 +29,7 @@ pub trait UnsealingVersion<P: Purpose>: Version {
 }
 
 /// This PASETO implementation can sign/encrypt tokens.
-pub trait SealingVersion<P: Purpose>: UnsealingVersion<P> {
+pub trait SealingVersion<P: Purpose>: UnsealingVersion<P> + HasKey<P::SealingKey> {
     /// Generate the key that can unseal the tokens this key will seal.
     fn unsealing_key(key: &SealingKeyInner<Self, P>) -> KeyInner<Self, P>;
 

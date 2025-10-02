@@ -32,7 +32,7 @@ impl LocalKey {
 impl PieWrapVersion for V4 {
     fn pie_wrap_key(
         header: &'static str,
-        wrapping_key: &Self::LocalKey,
+        wrapping_key: &super::LocalKey,
         key_data: Vec<u8>,
     ) -> Result<Vec<u8>, PasetoError> {
         let nonce = random::bytes(32);
@@ -52,7 +52,7 @@ impl PieWrapVersion for V4 {
 
     fn pie_unwrap_key<'key>(
         header: &'static str,
-        wrapping_key: &Self::LocalKey,
+        wrapping_key: &super::LocalKey,
         key_data: &'key mut [u8],
     ) -> Result<&'key [u8], PasetoError> {
         let (tag, ciphertext) = key_data

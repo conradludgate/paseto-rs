@@ -1,23 +1,21 @@
 //! Core traits and types for PASETO keys.
 
 use alloc::boxed::Box;
-use core::convert::Infallible;
 use core::fmt;
-use core::marker::PhantomData;
 
 use crate::paserk::{IdVersion, KeyId, KeyText};
 use crate::sealed::Sealed;
 use crate::version::{Local, PkePublic, PkeSecret, Public, SealingVersion, Secret, Version};
 use crate::{LocalKey, PasetoError, PublicKey, SecretKey};
 
-pub(crate) type KeyInner<V, K> = <K as KeyType>::Key<V>;
+pub(crate) type KeyInner<V, K> = <V as HasKey<K>>::Key;
 
 /// Generic key type.
-pub struct Key<V: Version, K: KeyType>(pub(crate) KeyInner<V, K>);
+pub struct Key<V: HasKey<K>, K: KeyType>(pub(crate) KeyInner<V, K>);
 
-impl<V: Version, K: KeyType> Clone for Key<V, K>
+impl<V: HasKey<K>, K: KeyType> Clone for Key<V, K>
 where
-    K::Key<V>: Clone,
+    KeyInner<V, K>: Clone,
 {
     fn clone(&self) -> Self {
         Self(self.0.clone())
@@ -43,24 +41,36 @@ impl<V: SealingVersion<Local>> LocalKey<V> {
     }
 }
 
-impl<V: Version> fmt::Display for PublicKey<V> {
+impl<V: HasKey<Public>> fmt::Display for PublicKey<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.expose_key().fmt(f)
     }
 }
 
-impl<V: Version, K: KeyType> core::str::FromStr for Key<V, K> {
+impl<V: HasKey<K>, K: KeyType> core::str::FromStr for Key<V, K> {
     type Err = PasetoError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         KeyText::<V, K>::from_str(s).and_then(|k| k.try_into())
     }
 }
 
-impl<V: IdVersion, K: KeyType> Key<V, K> {
+impl<V: IdVersion + HasKey<K>, K: KeyType> Key<V, K> {
     /// Generate the ID of this key
     pub fn id(&self) -> KeyId<V, K> {
         KeyId::from(&self.expose_key())
     }
+}
+
+/// Declares that this PASETO implementation supports the given key type,
+/// as well as how to encode/decode the key.
+pub trait HasKey<K>: Version {
+    type Key;
+
+    /// Encode the key into bytes.
+    fn encode(key: &Self::Key) -> Box<[u8]>;
+
+    /// Decode the key from bytes.
+    fn decode(bytes: &[u8]) -> Result<Self::Key, PasetoError>;
 }
 
 /// A marker for [`Secret`], [`Public`], and [`Local`]
@@ -69,9 +79,6 @@ pub trait KeyType: Send + Sync + Sealed + Sized + 'static {
     const HEADER: &'static str;
     /// ".lid." or ".pid." or ".sid."
     const ID_HEADER: &'static str;
-
-    /// The key to extract from the version.
-    type Key<V: Version>: KeyEncoding<V, Self>;
 }
 
 /// A marker for [`Secret`] and [`Local`] keys, used for signing and encrypting tokens.
@@ -83,8 +90,6 @@ pub trait SealingKey: KeyType {
 impl KeyType for Secret {
     const HEADER: &'static str = ".secret.";
     const ID_HEADER: &'static str = ".sid.";
-
-    type Key<V: Version> = V::SecretKey;
 }
 
 impl SealingKey for Secret {
@@ -95,15 +100,11 @@ impl SealingKey for Secret {
 impl KeyType for Public {
     const HEADER: &'static str = ".public.";
     const ID_HEADER: &'static str = ".pid.";
-
-    type Key<V: Version> = V::PublicKey;
 }
 
 impl KeyType for Local {
     const HEADER: &'static str = ".local.";
     const ID_HEADER: &'static str = ".lid.";
-
-    type Key<V: Version> = V::LocalKey;
 }
 
 impl SealingKey for Local {
@@ -114,34 +115,9 @@ impl SealingKey for Local {
 impl KeyType for PkeSecret {
     const HEADER: &'static str = ".secret.";
     const ID_HEADER: &'static str = ".sid.";
-
-    type Key<V: Version> = V::PkeSecretKey;
 }
 
 impl KeyType for PkePublic {
     const HEADER: &'static str = ".public.";
     const ID_HEADER: &'static str = ".pid.";
-
-    type Key<V: Version> = V::PkePublicKey;
-}
-
-/// Defines a PASETO key encoding and decoding
-pub trait KeyEncoding<V: Version, K: KeyType>: Sized {
-    /// Encode the key into bytes.
-    fn encode(&self) -> Box<[u8]>;
-    /// Decode the key from bytes.
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError>;
-}
-
-/// An unimplemented key. Useful if you don't want to implement some of the PASETO operations.
-pub struct Unimplemented<V: Version, K: KeyType>(Infallible, PhantomData<(V, K)>);
-
-impl<V: Version, K: KeyType> KeyEncoding<V, K> for Unimplemented<V, K> {
-    fn encode(&self) -> Box<[u8]> {
-        match self.0 {}
-    }
-
-    fn decode(_: &[u8]) -> Result<Self, PasetoError> {
-        unimplemented!("Key type {}{} is not supported", V::HEADER, K::HEADER)
-    }
 }

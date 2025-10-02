@@ -8,22 +8,33 @@ use generic_array::typenum::U48;
 use generic_array::{ArrayLength, GenericArray};
 use hmac::Mac;
 use paseto_core::PasetoError;
-use paseto_core::key::KeyEncoding;
+use paseto_core::key::HasKey;
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
 use paseto_core::version::Local;
 
 use super::{LocalKey, V3};
 
-#[cfg(feature = "decrypting")]
-impl KeyEncoding<V3, Local> for LocalKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+impl LocalKey {
+    pub fn as_raw_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+
+    pub fn from_raw_bytes(b: [u8; 32]) -> Self {
+        Self(b)
+    }
+}
+
+impl HasKey<Local> for V3 {
+    type Key = LocalKey;
+
+    fn decode(bytes: &[u8]) -> Result<LocalKey, PasetoError> {
         bytes
             .try_into()
-            .map(Self)
+            .map(LocalKey)
             .map_err(|_| PasetoError::InvalidKey)
     }
-    fn encode(&self) -> Box<[u8]> {
-        self.0.to_vec().into_boxed_slice()
+    fn encode(key: &LocalKey) -> Box<[u8]> {
+        key.0.to_vec().into_boxed_slice()
     }
 }
 

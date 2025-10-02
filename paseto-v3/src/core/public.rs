@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 use digest::Digest;
 use p384::ecdsa::Signature;
 use paseto_core::PasetoError;
-use paseto_core::key::KeyEncoding;
+use paseto_core::key::HasKey;
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
 use paseto_core::version::Public;
 
@@ -13,14 +13,16 @@ use paseto_core::version::Public;
 use super::SecretKey;
 use super::{PublicKey, V3};
 
-impl KeyEncoding<V3, Public> for PublicKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+impl HasKey<Public> for V3 {
+    type Key = PublicKey;
+
+    fn decode(bytes: &[u8]) -> Result<PublicKey, PasetoError> {
         p384::ecdsa::VerifyingKey::from_sec1_bytes(bytes)
-            .map(Self)
+            .map(PublicKey)
             .map_err(|_| PasetoError::InvalidKey)
     }
-    fn encode(&self) -> Box<[u8]> {
-        self.0
+    fn encode(key: &PublicKey) -> Box<[u8]> {
+        key.0
             .to_encoded_point(true)
             .as_bytes()
             .to_vec()
@@ -29,16 +31,18 @@ impl KeyEncoding<V3, Public> for PublicKey {
 }
 
 #[cfg(feature = "signing")]
-impl KeyEncoding<V3, paseto_core::version::Secret> for SecretKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+impl HasKey<paseto_core::version::Secret> for V3 {
+    type Key = SecretKey;
+
+    fn decode(bytes: &[u8]) -> Result<SecretKey, PasetoError> {
         if bytes.len() != 48 {
             return Err(PasetoError::InvalidKey);
         }
         let sk = p384::SecretKey::from_slice(bytes).map_err(|_| PasetoError::InvalidKey)?;
         Ok(SecretKey(sk.into()))
     }
-    fn encode(&self) -> Box<[u8]> {
-        self.0.to_bytes().to_vec().into_boxed_slice()
+    fn encode(key: &SecretKey) -> Box<[u8]> {
+        key.0.to_bytes().to_vec().into_boxed_slice()
     }
 }
 

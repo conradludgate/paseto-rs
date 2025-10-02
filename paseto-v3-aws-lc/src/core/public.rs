@@ -1,32 +1,36 @@
 use aws_lc_rs::digest::{self, Digest, SHA384};
 use aws_lc_rs::rand::{SecureRandom, SystemRandom};
 use paseto_core::PasetoError;
-use paseto_core::key::KeyEncoding;
+use paseto_core::key::HasKey;
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
 use paseto_core::version::{Public, Secret};
 
 use super::{PublicKey, SecretKey, V3};
 use crate::lc::{Signature, SigningKey, VerifyingKey};
 
-impl KeyEncoding<V3, Public> for PublicKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+impl HasKey<Public> for V3 {
+    type Key = PublicKey;
+
+    fn decode(bytes: &[u8]) -> Result<PublicKey, PasetoError> {
         let pk = VerifyingKey::from_sec1_bytes(bytes)?;
         Ok(PublicKey(pk))
     }
-    fn encode(&self) -> Box<[u8]> {
-        self.0.compressed_pub_key().to_vec().into_boxed_slice()
+    fn encode(key: &PublicKey) -> Box<[u8]> {
+        key.0.compressed_pub_key().to_vec().into_boxed_slice()
     }
 }
 
-impl KeyEncoding<V3, Secret> for SecretKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+impl HasKey<Secret> for V3 {
+    type Key = SecretKey;
+
+    fn decode(bytes: &[u8]) -> Result<SecretKey, PasetoError> {
         if bytes.len() != 48 {
             return Err(PasetoError::InvalidKey);
         }
-        SigningKey::from_sec1_bytes(bytes).map(Self)
+        SigningKey::from_sec1_bytes(bytes).map(SecretKey)
     }
-    fn encode(&self) -> Box<[u8]> {
-        self.0.encode().to_vec().into_boxed_slice()
+    fn encode(key: &SecretKey) -> Box<[u8]> {
+        key.0.encode().to_vec().into_boxed_slice()
     }
 }
 

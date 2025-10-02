@@ -6,27 +6,29 @@ use curve25519_dalek::EdwardsPoint;
 use digest::Mac;
 use generic_array::typenum::U32;
 use paseto_core::PasetoError;
-use paseto_core::key::KeyEncoding;
+use paseto_core::key::HasKey;
 use paseto_core::paserk::{PkeSealingVersion, PkeUnsealingVersion};
 use paseto_core::version::{PkePublic, PkeSecret, Public, Secret};
 
 use super::{LocalKey, PublicKey, SecretKey, V4};
 
-impl KeyEncoding<V4, PkePublic> for PublicKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
-        KeyEncoding::<V4, Public>::decode(bytes)
+impl HasKey<PkePublic> for V4 {
+    type Key = PublicKey;
+    fn decode(bytes: &[u8]) -> Result<PublicKey, PasetoError> {
+        <V4 as HasKey<Public>>::decode(bytes)
     }
-    fn encode(&self) -> Box<[u8]> {
-        KeyEncoding::<V4, Public>::encode(self)
+    fn encode(key: &PublicKey) -> Box<[u8]> {
+        <V4 as HasKey<Public>>::encode(key)
     }
 }
 
-impl KeyEncoding<V4, PkeSecret> for SecretKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
-        KeyEncoding::<V4, Secret>::decode(bytes)
+impl HasKey<PkeSecret> for V4 {
+    type Key = SecretKey;
+    fn decode(bytes: &[u8]) -> Result<SecretKey, PasetoError> {
+        <V4 as HasKey<Secret>>::decode(bytes)
     }
-    fn encode(&self) -> Box<[u8]> {
-        KeyEncoding::<V4, Secret>::encode(self)
+    fn encode(key: &SecretKey) -> Box<[u8]> {
+        <V4 as HasKey<Secret>>::encode(key)
     }
 }
 

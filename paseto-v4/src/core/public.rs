@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use ed25519_dalek::Signature;
 use paseto_core::PasetoError;
-use paseto_core::key::{KeyEncoding, KeyType};
+use paseto_core::key::{HasKey, KeyType};
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
 use paseto_core::version::Public;
 #[cfg(feature = "signing")]
@@ -14,6 +14,50 @@ use paseto_core::version::Secret;
 use super::{PreAuthEncodeDigest, SecretKey};
 use super::{PublicKey, V4};
 
+#[cfg(feature = "verifying")]
+impl HasKey<Public> for V4 {
+    type Key = PublicKey;
+
+    fn decode(bytes: &[u8]) -> Result<PublicKey, PasetoError> {
+        let key = bytes.try_into().map_err(|_| PasetoError::InvalidKey)?;
+        ed25519_dalek::VerifyingKey::from_bytes(&key)
+            .map(PublicKey)
+            .map_err(|_| PasetoError::InvalidKey)
+    }
+    fn encode(key: &PublicKey) -> Box<[u8]> {
+        key.0.as_bytes().to_vec().into_boxed_slice()
+    }
+}
+
+#[cfg(feature = "signing")]
+impl HasKey<Secret> for V4 {
+    type Key = SecretKey;
+
+    fn decode(bytes: &[u8]) -> Result<SecretKey, PasetoError> {
+        let (secret_key, verifying_key) = bytes
+            .split_first_chunk::<32>()
+            .ok_or(PasetoError::InvalidKey)?;
+
+        let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(secret_key);
+
+        let verifying_key = <V4 as HasKey<Public>>::decode(verifying_key)?;
+        let pubkey = ed25519_dalek::VerifyingKey::from(&esk);
+
+        if pubkey != verifying_key.0 {
+            return Err(PasetoError::InvalidKey);
+        }
+
+        Ok(SecretKey(*secret_key, esk))
+    }
+    fn encode(key: &SecretKey) -> Box<[u8]> {
+        let pubkey = ed25519_dalek::VerifyingKey::from(&key.1);
+        let mut bytes = Vec::with_capacity(64);
+        bytes.extend_from_slice(&key.0);
+        bytes.extend_from_slice(pubkey.as_bytes());
+        bytes.into_boxed_slice()
+    }
+}
+
 #[cfg(feature = "signing")]
 impl Clone for super::SecretKey {
     fn clone(&self) -> Self {
@@ -22,47 +66,6 @@ impl Clone for super::SecretKey {
             hash_prefix: self.1.hash_prefix,
         };
         Self(self.0, esk)
-    }
-}
-
-#[cfg(feature = "verifying")]
-impl KeyEncoding<V4, Public> for PublicKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
-        let key = bytes.try_into().map_err(|_| PasetoError::InvalidKey)?;
-        ed25519_dalek::VerifyingKey::from_bytes(&key)
-            .map(PublicKey)
-            .map_err(|_| PasetoError::InvalidKey)
-    }
-    fn encode(&self) -> Box<[u8]> {
-        self.0.as_bytes().to_vec().into_boxed_slice()
-    }
-}
-
-#[cfg(feature = "signing")]
-impl KeyEncoding<V4, Secret> for SecretKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
-        let (secret_key, verifying_key) = bytes
-            .split_first_chunk::<32>()
-            .ok_or(PasetoError::InvalidKey)?;
-
-        let esk = ed25519_dalek::hazmat::ExpandedSecretKey::from(secret_key);
-
-        let verifying_key = <PublicKey as KeyEncoding<V4, Public>>::decode(verifying_key)?;
-        let pubkey = ed25519_dalek::VerifyingKey::from(&esk);
-
-        if pubkey != verifying_key.0 {
-            return Err(PasetoError::InvalidKey);
-        }
-
-        Ok(Self(*secret_key, esk))
-    }
-
-    fn encode(&self) -> Box<[u8]> {
-        let pubkey = ed25519_dalek::VerifyingKey::from(&self.1);
-        let mut bytes = Vec::with_capacity(64);
-        bytes.extend_from_slice(&self.0);
-        bytes.extend_from_slice(pubkey.as_bytes());
-        bytes.into_boxed_slice()
     }
 }
 

@@ -3,7 +3,7 @@ use core::fmt;
 use core::marker::PhantomData;
 
 use crate::PasetoError;
-use crate::key::{Key, KeyEncoding, KeyType};
+use crate::key::{HasKey, Key, KeyType};
 use crate::version::Version;
 
 /// A plaintext encoding of a key.
@@ -14,14 +14,14 @@ pub struct KeyText<V: Version, K: KeyType> {
     _key: PhantomData<(V, K)>,
 }
 
-impl<V: Version, K: KeyType> Key<V, K> {
+impl<V: HasKey<K>, K: KeyType> Key<V, K> {
     /// Expose the key data such that it can be serialized.
     ///
     /// Be advised that serializing key data can be dangerous. Make sure
     /// they are saved on secure disks or sent on secure connections only.
     pub fn expose_key(&self) -> KeyText<V, K> {
         KeyText {
-            data: self.0.encode(),
+            data: V::encode(&self.0),
             _key: PhantomData,
         }
     }
@@ -68,10 +68,10 @@ impl<V: Version, K: KeyType> core::hash::Hash for KeyText<V, K> {
     }
 }
 
-impl<V: Version, K: KeyType> TryFrom<KeyText<V, K>> for Key<V, K> {
+impl<V: HasKey<K>, K: KeyType> TryFrom<KeyText<V, K>> for Key<V, K> {
     type Error = PasetoError;
     fn try_from(value: KeyText<V, K>) -> Result<Key<V, K>, PasetoError> {
-        <K::Key<V>>::decode(&value.data).map(Key)
+        V::decode(&value.data).map(Key)
     }
 }
 

@@ -3,23 +3,23 @@ use alloc::vec::Vec;
 use core::fmt;
 use core::marker::PhantomData;
 
-use crate::key::{Key, KeyEncoding, SealingKey};
-use crate::version::Version;
+use crate::key::{HasKey, Key, KeyInner, SealingKey};
+use crate::version::{Local, Version};
 use crate::{LocalKey, PasetoError};
 
 /// This PASETO implementation allows encrypting keys using a [`LocalKey`](crate::LocalKey)
-pub trait PieWrapVersion: Version {
+pub trait PieWrapVersion: Version + HasKey<Local> {
     /// Wrap the key
     fn pie_wrap_key(
         header: &'static str,
-        wrapping_key: &Self::LocalKey,
+        wrapping_key: &KeyInner<Self, Local>,
         key_data: Vec<u8>,
     ) -> Result<Vec<u8>, PasetoError>;
 
     /// Unwrap the key
     fn pie_unwrap_key<'key>(
         header: &'static str,
-        wrapping_key: &Self::LocalKey,
+        wrapping_key: &KeyInner<Self, Local>,
         key_data: &'key mut [u8],
     ) -> Result<&'key [u8], PasetoError>;
 }
@@ -33,21 +33,24 @@ pub struct PieWrappedKey<V: PieWrapVersion, K: SealingKey> {
     _version: PhantomData<(V, K)>,
 }
 
-impl<V: PieWrapVersion, K: SealingKey> Key<V, K> {
+impl<V: PieWrapVersion + HasKey<K>, K: SealingKey> Key<V, K> {
     pub fn wrap_pie(self, with: &LocalKey<V>) -> Result<PieWrappedKey<V, K>, PasetoError> {
-        V::pie_wrap_key(K::PIE_WRAP_HEADER, &with.0, self.0.encode().into_vec()).map(|key_data| {
-            PieWrappedKey {
-                key_data: key_data.into_boxed_slice(),
-                _version: PhantomData,
-            }
+        V::pie_wrap_key(
+            K::PIE_WRAP_HEADER,
+            &with.0,
+            <V as HasKey<K>>::encode(&self.0).into_vec(),
+        )
+        .map(|key_data| PieWrappedKey {
+            key_data: key_data.into_boxed_slice(),
+            _version: PhantomData,
         })
     }
 }
 
-impl<V: PieWrapVersion, K: SealingKey> PieWrappedKey<V, K> {
+impl<V: PieWrapVersion + HasKey<K>, K: SealingKey> PieWrappedKey<V, K> {
     pub fn unwrap(mut self, with: &LocalKey<V>) -> Result<Key<V, K>, PasetoError> {
         V::pie_unwrap_key(K::PIE_WRAP_HEADER, &with.0, &mut self.key_data)
-            .and_then(KeyEncoding::decode)
+            .and_then(<V as HasKey<K>>::decode)
             .map(Key)
     }
 }

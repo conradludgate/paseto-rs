@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
 use paseto_core::LocalKey;
-use paseto_core::key::{Key, SealingKey};
+use paseto_core::key::{HasKey, Key, SealingKey};
 use paseto_core::paserk::{PieWrapVersion, PieWrappedKey};
 use paseto_core::version::{Local, Secret};
 use paseto_test::{Bool, TestFile, eq_keys, read_test};
@@ -21,11 +21,9 @@ fn main() {
     libtest_mimic::run(&args, tests).exit();
 }
 
-fn add_all_tests<V: PieWrapVersion>(name: &str, tests: &mut Vec<Trial>)
+fn add_all_tests<V>(name: &str, tests: &mut Vec<Trial>)
 where
-    V::LocalKey: Send + 'static,
-    V::PublicKey: Send + 'static,
-    V::SecretKey: Send + 'static,
+    V: PieWrapVersion<Key: Send + 'static> + HasKey<Secret, Key: Send + 'static>,
 {
     WrapTest::<V, Local>::add_tests(name, tests);
     WrapTest::<V, Secret>::add_tests(name, tests);
@@ -33,7 +31,7 @@ where
 
 #[derive(Deserialize)]
 #[serde(untagged, bound = "")]
-enum WrapTest<V: PieWrapVersion, K: SealingKey> {
+enum WrapTest<V: PieWrapVersion + HasKey<K>, K: SealingKey> {
     #[serde(rename_all = "kebab-case")]
     Success {
         #[expect(unused)]
@@ -57,10 +55,10 @@ enum WrapTest<V: PieWrapVersion, K: SealingKey> {
     },
 }
 
-impl<V: PieWrapVersion, K: SealingKey> WrapTest<V, K>
+impl<V: PieWrapVersion + HasKey<K>, K: SealingKey> WrapTest<V, K>
 where
-    V::LocalKey: Send,
-    K::Key<V>: Send,
+    <V as HasKey<Local>>::Key: Send,
+    <V as HasKey<K>>::Key: Send,
 {
     fn add_tests(name: &str, tests: &mut Vec<Trial>) {
         let test_file: TestFile<Self> =

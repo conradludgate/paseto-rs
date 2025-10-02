@@ -20,12 +20,6 @@ pub struct LocalKey([u8; 32]);
 impl paseto_core::version::Version for V4 {
     const HEADER: &'static str = "v4";
     const PASERK_HEADER: &'static str = "k4";
-
-    type LocalKey = LocalKey;
-    type PublicKey = PublicKey;
-    type SecretKey = SecretKey;
-    type PkeSecretKey = SecretKey;
-    type PkePublicKey = PublicKey;
 }
 
 impl paseto_core::paserk::IdVersion for V4 {

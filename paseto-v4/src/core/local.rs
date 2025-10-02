@@ -10,22 +10,33 @@ use generic_array::GenericArray;
 use generic_array::sequence::Split;
 use generic_array::typenum::{U32, U56};
 use paseto_core::PasetoError;
-use paseto_core::key::KeyEncoding;
+use paseto_core::key::HasKey;
 use paseto_core::pae::pre_auth_encode;
 use paseto_core::version::Local;
 
 use super::{LocalKey, PreAuthEncodeDigest, V4, kdf};
 
-#[cfg(feature = "decrypting")]
-impl KeyEncoding<V4, Local> for LocalKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+impl LocalKey {
+    pub fn as_raw_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+
+    pub fn from_raw_bytes(b: [u8; 32]) -> Self {
+        Self(b)
+    }
+}
+
+impl HasKey<Local> for V4 {
+    type Key = LocalKey;
+
+    fn decode(bytes: &[u8]) -> Result<LocalKey, PasetoError> {
         bytes
             .try_into()
+            .map(LocalKey)
             .map_err(|_| PasetoError::InvalidKey)
-            .map(Self)
     }
-    fn encode(&self) -> Box<[u8]> {
-        self.0.to_vec().into_boxed_slice()
+    fn encode(key: &LocalKey) -> Box<[u8]> {
+        key.0.to_vec().into_boxed_slice()
     }
 }
 

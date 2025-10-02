@@ -4,7 +4,7 @@ use core::fmt;
 use core::marker::PhantomData;
 
 use crate::PasetoError;
-use crate::key::{Key, KeyEncoding, SealingKey};
+use crate::key::{HasKey, Key, SealingKey};
 use crate::version::Version;
 
 /// This PASETO implementation allows encrypting keys using a password
@@ -39,7 +39,7 @@ pub struct PasswordWrappedKey<V: PwWrapVersion, K: SealingKey> {
     _version: PhantomData<(V, K)>,
 }
 
-impl<V: PwWrapVersion, K: SealingKey> Key<V, K> {
+impl<V: PwWrapVersion + HasKey<K>, K: SealingKey> Key<V, K> {
     /// Encrypt the key using the password.
     pub fn password_wrap(self, pass: &[u8]) -> Result<PasswordWrappedKey<V, K>, PasetoError> {
         self.password_wrap_with_params(pass, &V::Params::default())
@@ -51,12 +51,16 @@ impl<V: PwWrapVersion, K: SealingKey> Key<V, K> {
         pass: &[u8],
         params: &V::Params,
     ) -> Result<PasswordWrappedKey<V, K>, PasetoError> {
-        V::pw_wrap_key(K::PW_WRAP_HEADER, pass, params, self.0.encode().into_vec()).map(
-            |key_data| PasswordWrappedKey {
-                key_data: key_data.into_boxed_slice(),
-                _version: PhantomData,
-            },
+        V::pw_wrap_key(
+            K::PW_WRAP_HEADER,
+            pass,
+            params,
+            V::encode(&self.0).into_vec(),
         )
+        .map(|key_data| PasswordWrappedKey {
+            key_data: key_data.into_boxed_slice(),
+            _version: PhantomData,
+        })
     }
 }
 
@@ -65,11 +69,13 @@ impl<V: PwWrapVersion, K: SealingKey> PasswordWrappedKey<V, K> {
     pub fn params(&self) -> Result<V::Params, PasetoError> {
         V::get_params(&self.key_data)
     }
+}
 
+impl<V: PwWrapVersion + HasKey<K>, K: SealingKey> PasswordWrappedKey<V, K> {
     /// Decrypt the key using the password.
     pub fn unwrap(mut self, pass: &[u8]) -> Result<Key<V, K>, PasetoError> {
         V::pw_unwrap_key(K::PW_WRAP_HEADER, pass, &mut self.key_data)
-            .and_then(KeyEncoding::decode)
+            .and_then(V::decode)
             .map(Key)
     }
 }

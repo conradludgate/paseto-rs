@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::key::{Key, KeyType};
+use paseto_core::key::{HasKey, Key, KeyType};
 use paseto_core::paserk::KeyText;
 use paseto_core::version::{Local, Public, Secret, Version};
 use paseto_test::{Bool, TestFile, read_test};
@@ -20,11 +20,12 @@ fn main() {
     libtest_mimic::run(&args, tests).exit();
 }
 
-fn add_all_tests<V: Version>(name: &str, tests: &mut Vec<Trial>)
+fn add_all_tests<V>(name: &str, tests: &mut Vec<Trial>)
 where
-    V::LocalKey: Send + 'static,
-    V::PublicKey: Send + 'static,
-    V::SecretKey: Send + 'static,
+    V: Version
+        + HasKey<Local, Key: Send + 'static>
+        + HasKey<Public, Key: Send + 'static>
+        + HasKey<Secret, Key: Send + 'static>,
 {
     KeyTest::<V, Local>::add_tests(name, tests);
     KeyTest::<V, Secret>::add_tests(name, tests);
@@ -33,7 +34,7 @@ where
 
 #[derive(Deserialize)]
 #[serde(untagged, bound = "")]
-enum KeyTest<V: Version, K: KeyType> {
+enum KeyTest<V: Version + HasKey<K>, K: KeyType> {
     #[serde(rename_all = "kebab-case")]
     Success {
         #[expect(unused)]
@@ -63,9 +64,9 @@ enum KeyTest<V: Version, K: KeyType> {
     },
 }
 
-impl<V: Version, K: KeyType> KeyTest<V, K>
+impl<V: HasKey<K>, K: KeyType> KeyTest<V, K>
 where
-    K::Key<V>: Send + 'static,
+    V::Key: Send + 'static,
 {
     fn add_tests(name: &str, tests: &mut Vec<Trial>) {
         let test_file: TestFile<Self> =

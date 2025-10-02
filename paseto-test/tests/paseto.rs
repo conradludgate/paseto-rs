@@ -1,6 +1,7 @@
 use libtest_mimic::{Arguments, Failed, Trial};
+use paseto_core::key::HasKey;
 use paseto_core::validation::NoValidation;
-use paseto_core::version::{Local, Public, SealingVersion, Version};
+use paseto_core::version::{Local, Public, SealingVersion, Secret};
 use paseto_core::{
     EncryptedToken, LocalKey, PublicKey, SecretKey, SignedToken, UnencryptedToken, UnsignedToken,
 };
@@ -24,7 +25,7 @@ fn main() {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case", bound = "")]
-struct PasetoTest<V: Version> {
+struct PasetoTest<V: SealingVersion<Local> + SealingVersion<Public>> {
     token: String,
     footer: String,
     implicit_assertion: String,
@@ -37,9 +38,9 @@ struct PasetoTest<V: Version> {
 impl<V> PasetoTest<V>
 where
     V: SealingVersion<Local> + SealingVersion<Public>,
-    V::LocalKey: Send,
-    V::PublicKey: Send,
-    V::SecretKey: Send,
+    V: HasKey<Local, Key: Send>,
+    V: HasKey<Public, Key: Send>,
+    V: HasKey<Secret, Key: Send>,
 {
     fn add_tests(name: &str, tests: &mut Vec<Trial>) {
         let test_file: TestFile<Self> = read_test(&format!("{}.json", V::HEADER));
@@ -183,7 +184,7 @@ where
 
 #[derive(Deserialize)]
 #[serde(untagged, bound = "")]
-enum PasetoPurpose<V: Version> {
+enum PasetoPurpose<V: SealingVersion<Local> + SealingVersion<Public>> {
     #[serde(rename_all = "kebab-case")]
     Local {
         #[serde(deserialize_with = "paseto_test::deserialize_hex")]

@@ -1,7 +1,9 @@
-use std::{hint::black_box, time::Duration};
+use std::hint::black_box;
+use std::time::Duration;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use paseto_core::{validation::NoValidation, version::Secret};
+use paseto_core::validation::NoValidation;
+use paseto_core::version::Secret;
 use paseto_json::RegisteredClaims;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
@@ -70,10 +72,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
 
     g.bench_function("pasetors", |b| {
-        use pasetors::{
-            claims::ClaimsValidationRules, keys::AsymmetricPublicKey, public,
-            token::UntrustedToken, version4,
-        };
+        use pasetors::claims::ClaimsValidationRules;
+        use pasetors::keys::AsymmetricPublicKey;
+        use pasetors::token::UntrustedToken;
+        use pasetors::{public, version4};
 
         let key = AsymmetricPublicKey::<version4::V4>::from(&pub_key_bytes).unwrap();
 
@@ -147,7 +149,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
 
     g.bench_function("pasetors", |b| {
-        use pasetors::{claims::Claims, keys::AsymmetricSecretKey, public, version4};
+        use pasetors::claims::Claims;
+        use pasetors::keys::AsymmetricSecretKey;
+        use pasetors::{public, version4};
 
         let key = AsymmetricSecretKey::<version4::V4>::from(&priv_key_bytes).unwrap();
 

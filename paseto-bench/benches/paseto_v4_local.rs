@@ -1,7 +1,9 @@
-use std::{hint::black_box, time::Duration};
+use std::hint::black_box;
+use std::time::Duration;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use paseto_core::{validation::NoValidation, version::Local};
+use paseto_core::validation::NoValidation;
+use paseto_core::version::Local;
 use paseto_json::RegisteredClaims;
 
 pub fn criterion_benchmark(c: &mut Criterion) {
@@ -63,10 +65,10 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
 
     g.bench_function("pasetors", |b| {
-        use pasetors::{
-            claims::ClaimsValidationRules, keys::SymmetricKey, local, token::UntrustedToken,
-            version4,
-        };
+        use pasetors::claims::ClaimsValidationRules;
+        use pasetors::keys::SymmetricKey;
+        use pasetors::token::UntrustedToken;
+        use pasetors::{local, version4};
 
         let key = SymmetricKey::<version4::V4>::from(&key_bytes).unwrap();
 
@@ -139,7 +141,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     });
 
     g.bench_function("pasetors", |b| {
-        use pasetors::{claims::Claims, keys::SymmetricKey, local, version4};
+        use pasetors::claims::Claims;
+        use pasetors::keys::SymmetricKey;
+        use pasetors::{local, version4};
 
         let key = SymmetricKey::<version4::V4>::from(&key_bytes).unwrap();
 

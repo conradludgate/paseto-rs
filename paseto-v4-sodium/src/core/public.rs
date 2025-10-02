@@ -1,31 +1,34 @@
 use libsodium_rs::{crypto_sign, random};
 use paseto_core::PasetoError;
-use paseto_core::key::KeyEncoding;
+use paseto_core::key::HasKey;
 use paseto_core::pae::pre_auth_encode;
 use paseto_core::version::{Public, Secret};
 
 use super::{PublicKey, SecretKey, V4};
 
-impl KeyEncoding<V4, Public> for PublicKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+impl HasKey<Public> for V4 {
+    type Key = PublicKey;
+
+    fn decode(bytes: &[u8]) -> Result<PublicKey, PasetoError> {
         crypto_sign::PublicKey::from_bytes(bytes)
-            .map(Self)
+            .map(PublicKey)
             .map_err(|_| PasetoError::InvalidKey)
     }
-    fn encode(&self) -> Box<[u8]> {
-        self.0.as_bytes().to_vec().into_boxed_slice()
+    fn encode(key: &PublicKey) -> Box<[u8]> {
+        key.0.as_bytes().to_vec().into_boxed_slice()
     }
 }
 
-impl KeyEncoding<V4, Secret> for SecretKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+impl HasKey<Secret> for V4 {
+    type Key = SecretKey;
+
+    fn decode(bytes: &[u8]) -> Result<SecretKey, PasetoError> {
         crypto_sign::SecretKey::from_bytes(bytes)
-            .map(Self)
+            .map(SecretKey)
             .map_err(|_| PasetoError::InvalidKey)
     }
-
-    fn encode(&self) -> Box<[u8]> {
-        self.0.as_bytes().to_vec().into_boxed_slice()
+    fn encode(key: &SecretKey) -> Box<[u8]> {
+        key.0.as_bytes().to_vec().into_boxed_slice()
     }
 }
 

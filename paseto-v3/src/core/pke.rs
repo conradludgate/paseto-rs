@@ -5,28 +5,30 @@ use cipher::StreamCipher;
 use generic_array::sequence::Split;
 use hmac::Mac;
 use paseto_core::PasetoError;
-use paseto_core::key::KeyEncoding;
+use paseto_core::key::HasKey;
 use paseto_core::paserk::{PkeSealingVersion, PkeUnsealingVersion};
 use paseto_core::version::{PkePublic, PkeSecret, Public, Secret};
 use sha2::Digest;
 
 use super::{LocalKey, PublicKey, SecretKey, V3};
 
-impl KeyEncoding<V3, PkePublic> for PublicKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
-        KeyEncoding::<V3, Public>::decode(bytes)
+impl HasKey<PkePublic> for V3 {
+    type Key = PublicKey;
+    fn decode(bytes: &[u8]) -> Result<PublicKey, PasetoError> {
+        <V3 as HasKey<Public>>::decode(bytes)
     }
-    fn encode(&self) -> Box<[u8]> {
-        KeyEncoding::<V3, Public>::encode(self)
+    fn encode(key: &PublicKey) -> Box<[u8]> {
+        <V3 as HasKey<Public>>::encode(key)
     }
 }
 
-impl KeyEncoding<V3, PkeSecret> for SecretKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
-        KeyEncoding::<V3, Secret>::decode(bytes)
+impl HasKey<PkeSecret> for V3 {
+    type Key = SecretKey;
+    fn decode(bytes: &[u8]) -> Result<SecretKey, PasetoError> {
+        <V3 as HasKey<Secret>>::decode(bytes)
     }
-    fn encode(&self) -> Box<[u8]> {
-        KeyEncoding::<V3, Secret>::encode(self)
+    fn encode(key: &SecretKey) -> Box<[u8]> {
+        <V3 as HasKey<Secret>>::encode(key)
     }
 }
 

@@ -30,36 +30,6 @@ pub struct PublicKey(pub(super) ed25519_dalek::VerifyingKey);
 impl version::Version for V4 {
     const HEADER: &'static str = "v4";
     const PASERK_HEADER: &'static str = "k4";
-
-    #[cfg(feature = "decrypting")]
-    type LocalKey = LocalKey;
-
-    #[cfg(not(feature = "decrypting"))]
-    type LocalKey = paseto_core::key::Unimplemented<Self, version::Local>;
-
-    #[cfg(feature = "signing")]
-    type SecretKey = SecretKey;
-
-    #[cfg(not(feature = "signing"))]
-    type SecretKey = paseto_core::key::Unimplemented<Self, version::Secret>;
-
-    #[cfg(feature = "verifying")]
-    type PublicKey = PublicKey;
-
-    #[cfg(not(feature = "verifying"))]
-    type PublicKey = paseto_core::key::Unimplemented<Self, version::Public>;
-
-    #[cfg(feature = "pke")]
-    type PkeSecretKey = SecretKey;
-
-    #[cfg(not(feature = "pke"))]
-    type PkeSecretKey = paseto_core::key::Unimplemented<Self, version::Secret>;
-
-    #[cfg(feature = "pke")]
-    type PkePublicKey = PublicKey;
-
-    #[cfg(not(feature = "pke"))]
-    type PkePublicKey = paseto_core::key::Unimplemented<Self, version::Public>;
 }
 
 #[cfg(feature = "id")]

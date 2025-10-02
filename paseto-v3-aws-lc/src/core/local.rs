@@ -5,21 +5,33 @@ use aws_lc_rs::hmac::{self, HMAC_SHA384};
 use aws_lc_rs::iv::FixedLength;
 use aws_lc_rs::rand::{SecureRandom, SystemRandom};
 use paseto_core::PasetoError;
-use paseto_core::key::KeyEncoding;
+use paseto_core::key::HasKey;
 use paseto_core::pae::{WriteBytes, pre_auth_encode};
 use paseto_core::version::Local;
 
 use super::{Cipher, LocalKey, V3};
 
-impl KeyEncoding<V3, Local> for LocalKey {
-    fn decode(bytes: &[u8]) -> Result<Self, PasetoError> {
+impl LocalKey {
+    pub fn as_raw_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+
+    pub fn from_raw_bytes(b: [u8; 32]) -> Self {
+        Self(b)
+    }
+}
+
+impl HasKey<Local> for V3 {
+    type Key = LocalKey;
+
+    fn decode(bytes: &[u8]) -> Result<LocalKey, PasetoError> {
         bytes
             .try_into()
-            .map(Self)
+            .map(LocalKey)
             .map_err(|_| PasetoError::InvalidKey)
     }
-    fn encode(&self) -> Box<[u8]> {
-        self.0.to_vec().into_boxed_slice()
+    fn encode(key: &LocalKey) -> Box<[u8]> {
+        key.0.to_vec().into_boxed_slice()
     }
 }
 

@@ -1,5 +1,5 @@
 use libtest_mimic::{Arguments, Failed, Trial};
-use paseto_core::key::{Key, KeyType};
+use paseto_core::key::{HasKey, Key, KeyType};
 use paseto_core::paserk::{IdVersion, KeyId, KeyText};
 use paseto_core::version::{Local, Public, Secret};
 use paseto_test::{Bool, TestFile, read_test};
@@ -20,7 +20,7 @@ fn main() {
 
 #[derive(Deserialize)]
 #[serde(untagged, bound = "")]
-enum IdTest<V: IdVersion, K: KeyType> {
+enum IdTest<V: IdVersion + HasKey<K>, K: KeyType> {
     #[serde(rename_all = "kebab-case")]
     Success {
         #[expect(unused)]
@@ -41,20 +41,21 @@ enum IdTest<V: IdVersion, K: KeyType> {
     },
 }
 
-fn add_all_tests<V: IdVersion>(name: &str, tests: &mut Vec<Trial>)
+fn add_all_tests<V>(name: &str, tests: &mut Vec<Trial>)
 where
-    V::LocalKey: Send + 'static,
-    V::PublicKey: Send + 'static,
-    V::SecretKey: Send + 'static,
+    V: IdVersion
+        + HasKey<Local, Key: Send + 'static>
+        + HasKey<Public, Key: Send + 'static>
+        + HasKey<Secret, Key: Send + 'static>,
 {
     IdTest::<V, Local>::add_tests(name, tests);
     IdTest::<V, Secret>::add_tests(name, tests);
     IdTest::<V, Public>::add_tests(name, tests);
 }
 
-impl<V: IdVersion, K: KeyType> IdTest<V, K>
+impl<V: IdVersion + HasKey<K>, K: KeyType> IdTest<V, K>
 where
-    K::Key<V>: Send + 'static,
+    V::Key: Send + 'static,
 {
     fn add_tests(name: &str, tests: &mut Vec<Trial>) {
         let test_file: TestFile<Self> =

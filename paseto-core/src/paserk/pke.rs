@@ -2,26 +2,26 @@ use alloc::boxed::Box;
 use core::fmt;
 use core::marker::PhantomData;
 
-use crate::key::Key;
-use crate::version::{PkePublic, PkeSecret, Version};
+use crate::key::{HasKey, Key, KeyInner};
+use crate::version::{Local, PkePublic, PkeSecret, Version};
 use crate::{LocalKey, PasetoError};
 
 /// This PASETO implementation allows encrypting keys using a [`PublicKey`](crate::PublicKey)
-pub trait PkeSealingVersion: Version {
+pub trait PkeSealingVersion: Version + HasKey<Local> + HasKey<PkePublic> {
     /// Seal the key using the public key
     fn seal_key(
-        sealing_key: &Self::PkePublicKey,
-        key: Self::LocalKey,
+        sealing_key: &KeyInner<Self, PkePublic>,
+        key: KeyInner<Self, Local>,
     ) -> Result<Box<[u8]>, PasetoError>;
 }
 
 /// This PASETO implementation allows decrypting keys using a [`SecretKey`](crate::SecretKey)
-pub trait PkeUnsealingVersion: Version {
+pub trait PkeUnsealingVersion: Version + HasKey<Local> + HasKey<PkeSecret> {
     /// Unseal the key using the secret key
     fn unseal_key(
-        sealing_key: &Self::PkeSecretKey,
+        sealing_key: &KeyInner<Self, PkeSecret>,
         key_data: Box<[u8]>,
-    ) -> Result<Self::LocalKey, PasetoError>;
+    ) -> Result<KeyInner<Self, Local>, PasetoError>;
 }
 
 /// An asymmetrically encrypted [`LocalKey`].
