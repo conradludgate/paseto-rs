@@ -41,6 +41,12 @@ impl<V: SealingVersion<Local>> LocalKey<V> {
     }
 }
 
+impl<V: SealingVersion<Local>> From<[u8; 32]> for LocalKey<V> {
+    fn from(value: [u8; 32]) -> Self {
+        Self(V::decode(&value[..]).expect("all 32 bytes should be valid local keys"))
+    }
+}
+
 impl<V: HasKey<Public>> fmt::Display for PublicKey<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.expose_key().fmt(f)
