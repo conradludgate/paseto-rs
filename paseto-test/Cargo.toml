@@ -7,6 +7,7 @@ publish = false
 [dependencies]
 paseto-core.workspace = true
 paseto-json.workspace = true
+paseto-v2.workspace = true
 paseto-v3.workspace = true
 paseto-v3-aws-lc.workspace = true
 paseto-v4.workspace = true

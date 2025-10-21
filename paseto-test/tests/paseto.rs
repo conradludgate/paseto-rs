@@ -15,6 +15,7 @@ fn main() {
 
     let mut tests = vec![];
 
+    PasetoTest::<paseto_v2::core::V2>::add_tests("paseto-v2", &mut tests);
     PasetoTest::<paseto_v3::core::V3>::add_tests("paseto-v3", &mut tests);
     PasetoTest::<paseto_v3_aws_lc::core::V3>::add_tests("paseto-v3-aws-lc", &mut tests);
     PasetoTest::<paseto_v4::core::V4>::add_tests("paseto-v4", &mut tests);
