@@ -209,6 +209,16 @@ mod claims_impls {
 
     pub struct HasExpiry;
 
+    impl Validate for HasExpiry {
+        type Claims = RegisteredClaims;
+        fn validate(&self, claims: &Self::Claims) -> Result<(), PasetoError> {
+            if claims.exp.is_none() {
+                return Err(PasetoError::ClaimsError);
+            }
+            Ok(())
+        }
+    }
+
     impl RegisteredClaims {
         pub fn new(now: jiff::Timestamp, exp: Duration) -> Self {
             Self {
