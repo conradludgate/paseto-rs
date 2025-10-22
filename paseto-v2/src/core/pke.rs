@@ -56,7 +56,7 @@ impl PkeSealingVersion for V2 {
         let xk = esk * xpk;
 
         let mut ek = blake2::Blake2b::new();
-        ek.update(b"\x01k4.seal.");
+        ek.update(b"\x01k2.seal.");
         ek.update(xk.as_bytes());
         ek.update(epk.as_bytes());
         ek.update(xpk.as_bytes());
@@ -71,14 +71,14 @@ impl PkeSealingVersion for V2 {
         chacha20::XChaCha20::new(&ek, &n).apply_keystream(&mut edk);
 
         let mut ak = blake2::Blake2b::<U32>::new();
-        ak.update(b"\x02k4.seal.");
+        ak.update(b"\x02k2.seal.");
         ak.update(xk.as_bytes());
         ak.update(epk.as_bytes());
         ak.update(xpk.as_bytes());
         let ak = ak.finalize();
 
         let mut tag = blake2::Blake2bMac::<U32>::new_from_slice(&ak).unwrap();
-        tag.update(b"k4.seal.");
+        tag.update(b"k2.seal.");
         tag.update(epk.as_bytes());
         tag.update(&edk);
         let tag = tag.finalize().into_bytes();
@@ -117,14 +117,14 @@ impl PkeUnsealingVersion for V2 {
         let xk = unsealing_key.1.scalar * epk;
 
         let mut ak = blake2::Blake2b::<U32>::new();
-        ak.update(b"\x02k4.seal.");
+        ak.update(b"\x02k2.seal.");
         ak.update(xk.as_bytes());
         ak.update(epk.as_bytes());
         ak.update(xpk.as_bytes());
         let ak = ak.finalize();
 
         let mut t2 = blake2::Blake2bMac::<U32>::new_from_slice(&ak).unwrap();
-        t2.update(b"k4.seal.");
+        t2.update(b"k2.seal.");
         t2.update(epk.as_bytes());
         t2.update(edk);
 
@@ -133,7 +133,7 @@ impl PkeUnsealingVersion for V2 {
             .map_err(|_| PasetoError::CryptoError)?;
 
         let mut ek = blake2::Blake2b::new();
-        ek.update(b"\x01k4.seal.");
+        ek.update(b"\x01k2.seal.");
         ek.update(xk.as_bytes());
         ek.update(epk.as_bytes());
         ek.update(xpk.as_bytes());

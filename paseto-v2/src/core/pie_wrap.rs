@@ -74,7 +74,7 @@ fn auth(
     nonce: &[u8],
     ciphertext: &[u8],
 ) {
-    mac.update(b"k4");
+    mac.update(b"k2");
     mac.update(encoding.as_bytes());
     mac.update(nonce);
     mac.update(ciphertext);

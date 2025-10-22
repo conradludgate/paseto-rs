@@ -29,7 +29,7 @@ pub struct PublicKey(pub(super) ed25519_dalek::VerifyingKey);
 
 impl version::Version for V2 {
     const HEADER: &'static str = "v2";
-    const PASERK_HEADER: &'static str = "k4";
+    const PASERK_HEADER: &'static str = "k2";
 }
 
 #[cfg(feature = "id")]
@@ -39,7 +39,7 @@ impl paseto_core::paserk::IdVersion for V2 {
         use digest::{FixedOutput, Update};
 
         let mut ctx = blake2::Blake2b::<U33>::default();
-        ctx.update(b"k4");
+        ctx.update(b"k2");
         ctx.update(key_header.as_bytes());
         ctx.update(key_data);
         ctx.finalize_fixed().into()

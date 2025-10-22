@@ -156,7 +156,7 @@ fn auth(
     prefix: &Prefix,
     ciphertext: &[u8],
 ) {
-    mac.update(b"k4");
+    mac.update(b"k2");
     mac.update(header.as_bytes());
     mac.update(prefix.as_bytes());
     mac.update(ciphertext);

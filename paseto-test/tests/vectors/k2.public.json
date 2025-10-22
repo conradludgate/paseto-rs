@@ -10,20 +10,20 @@
     {
       "name": "k2.public-2",
       "expect-fail": false,
-      "key": "707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f",
-      "paserk": "k2.public.cHFyc3R1dnd4eXp7fH1-f4CBgoOEhYaHiImKi4yNjo8"
+      "key": "b7715bd661458d928654d3e832f53ff5c9480542e0e3d4c9b032c768c7ce6023",
+      "paserk": "k2.public.t3Fb1mFFjZKGVNPoMvU_9clIBULg49TJsDLHaMfOYCM"
     },
     {
       "name": "k2.public-3",
       "expect-fail": false,
-      "key": "707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e90",
-      "paserk": "k2.public.cHFyc3R1dnd4eXp7fH1-f4CBgoOEhYaHiImKi4yNjpA"
+      "key": "a0fbc3dc2f99a538b40fb7616a83cf4276b6cf223fff5a2c2d3236235eb87dc7",
+      "paserk": "k2.public.oPvD3C-ZpTi0D7dhaoPPQna2zyI__1osLTI2I164fcc"
     },
     {
       "name": "k2.public-fail-1",
       "expect-fail": true,
       "comment": "Implementations MUST NOT accept a PASERK of the wrong version.",
-      "key":  "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyaTgTt53ph3p5GHgwoGW\nwz5hRfWXSQA08NCOwe0FEgALWos9GCjNFCd723nCHxBtN1qd74MSh/uN88JPIbwx\nKheDp4kxo4YMN5trPaF0e9G6Bj1N02HnanxFLW+gmLbgYO/SZYfWF/M8yLBcu5Y1\nOt0ZxDDDXS9wIQTtBE0ne3YbxgZJAZTU5XqyQ1DxdzYyC5lF6yBaR5UQtCYTnXAA\npVRuUI2Sd6L1E2vl9bSBumZ5IpNxkRnAwIMjeTJB/0AIELh0mE5vwdihOCbdV6al\nUyhKC1+1w/FW6HWcp/JG1kKC8DPIidZ78Bbqv9YFzkAbNni5eSBOsXVBKG78Zsc8\nowIDAQAB\n-----END PUBLIC KEY-----",
+      "key":  "30820122300d06092a864886f70d01010105000382010f003082010a0282010100c9a4e04ede77a61de9e461e0c28196c33e6145f597490034f0d08ec1ed0512000b5a8b3d1828cd14277bdb79c21f106d375a9def831286e37cf093c86f0c4a85e0e9e24c68e1830de6dacf685d1ef46e818f5374d879da9f114b5a098b6e060e49961f58533cc8b05cbb96353add19c430c35d2f702104ed044d277b761bc606490194d4e57ab24350f17736320b9945eb205a479510b426139d7000a5546e508d9277a2f5136be5f5b481ba66792293719119c0c08323793241d002042e1d26139bf076284e09b755e9a954ca1282d75c055ba1d6729246d64282f033c889d67bf016eabfd605ce401b3678b979204eb17541286efc66c73ca30203010001",
       "paserk": null
     }
   ]
