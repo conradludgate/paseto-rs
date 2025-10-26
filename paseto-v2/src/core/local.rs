@@ -1,10 +1,7 @@
 use alloc::boxed::Box;
-#[cfg(feature = "encrypting")]
 use alloc::vec::Vec;
 
 use chacha20poly1305::XChaCha20Poly1305;
-use digest::Mac;
-use generic_array::typenum::U24;
 use paseto_core::PasetoError;
 use paseto_core::key::HasKey;
 use paseto_core::pae::pre_auth_encode;
@@ -66,6 +63,8 @@ impl paseto_core::version::SealingVersion<Local> for V2 {
     ) -> Result<Vec<u8>, PasetoError> {
         use chacha20poly1305::aead::AeadMutInPlace;
         use cipher::KeyInit;
+        use digest::Mac;
+        use generic_array::typenum::U24;
 
         if !aad.is_empty() {
             return Err(PasetoError::ClaimsError);

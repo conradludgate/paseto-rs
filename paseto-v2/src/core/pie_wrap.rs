@@ -10,7 +10,7 @@ use generic_array::typenum::{U32, U56};
 use paseto_core::PasetoError;
 use paseto_core::paserk::PieWrapVersion;
 
-use super::{LocalKey, V2, kdf};
+use super::{LocalKey, V2};
 
 impl LocalKey {
     fn wrap_keys(&self, nonce: &[u8; 32]) -> (XChaCha20, Blake2bMac<U32>) {
@@ -78,4 +78,18 @@ fn auth(
     mac.update(encoding.as_bytes());
     mac.update(nonce);
     mac.update(ciphertext);
+}
+
+fn kdf<O>(key: &[u8], sep: &'static [u8], nonce: &[u8]) -> generic_array::GenericArray<u8, O>
+where
+    O: generic_array::ArrayLength<u8>
+        + generic_array::typenum::IsLessOrEqual<generic_array::typenum::U64>,
+    generic_array::typenum::LeEq<O, generic_array::typenum::U64>: generic_array::typenum::NonZero,
+{
+    use digest::Mac;
+
+    let mut mac = blake2::Blake2bMac::<O>::new_from_slice(key).expect("key should be valid");
+    mac.update(sep);
+    mac.update(nonce);
+    mac.finalize().into_bytes()
 }

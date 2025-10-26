@@ -11,7 +11,7 @@ use paseto_core::version::Public;
 use paseto_core::version::Secret;
 
 #[cfg(feature = "signing")]
-use super::{PreAuthEncodeDigest, SecretKey};
+use super::SecretKey;
 use super::{PublicKey, V2};
 
 #[cfg(feature = "verifying")]
@@ -198,4 +198,14 @@ fn preauth_secret(
         &vk,
     )
     .expect("should not error")
+}
+
+#[cfg(feature = "signing")]
+struct PreAuthEncodeDigest<'a, M: digest::Update>(pub &'a mut M);
+
+#[cfg(feature = "signing")]
+impl<M: digest::Update> paseto_core::pae::WriteBytes for PreAuthEncodeDigest<'_, M> {
+    fn write(&mut self, slice: &[u8]) {
+        self.0.update(slice);
+    }
 }
