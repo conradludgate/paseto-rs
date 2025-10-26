@@ -12,6 +12,7 @@ fn main() {
 
     let mut tests = vec![];
 
+    add_all_tests::<paseto_v1::core::V1>("paseto-v1", &mut tests);
     add_all_tests::<paseto_v2::core::V2>("paseto-v2", &mut tests);
     add_all_tests::<paseto_v3::core::V3>("paseto-v3", &mut tests);
     add_all_tests::<paseto_v3_aws_lc::core::V3>("paseto-v3-aws-lc", &mut tests);
@@ -60,8 +61,7 @@ enum KeyTest<V: Version + HasKey<K>, K: KeyType> {
         comment: String,
         #[expect(unused)]
         paserk: (),
-        #[serde(deserialize_with = "paseto_test::deserialize_hex")]
-        key: Vec<u8>,
+        key: String,
     },
 }
 
@@ -74,7 +74,7 @@ where
             read_test(&format!("{}{}json", V::PASERK_HEADER, K::HEADER));
         for test in test_file.tests {
             let name = format!("{name}::{}", test.name);
-            tests.push(Trial::test(name, || test.test_data.test()));
+            tests.push(Trial::test(name, move || test.get_test().test()));
         }
     }
 
@@ -102,8 +102,8 @@ where
                 Err(_) => Ok(()),
             },
             KeyTest::KeyFailure { key, comment, .. } => {
-                match Key::try_from(KeyText::<V, K>::from_raw_bytes(&key)) {
-                    Ok(_) => Err(comment.into()),
+                match paseto_test::deserialize_key(serde_json::Value::String(key)) {
+                    Ok(Key::<V, K> { .. }) => Err(comment.into()),
                     Err(_) => Ok(()),
                 }
             }

@@ -1,7 +1,10 @@
+use std::marker::PhantomData;
+
 use paseto_core::key::{HasKey, Key, KeyType};
 use paseto_core::paserk::KeyText;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
+use serde_json::value::RawValue;
 
 pub fn read_test<Test: DeserializeOwned>(v: &str) -> TestFile<Test> {
     let path = format!("tests/vectors/{v}");
@@ -15,11 +18,37 @@ pub struct TestFile<T> {
     pub tests: Vec<Test<T>>,
 }
 
-#[derive(Deserialize)]
 pub struct Test<T> {
     pub name: String,
-    #[serde(flatten)]
-    pub test_data: T,
+    raw_test: Box<RawValue>,
+    test_data: PhantomData<T>,
+}
+
+impl<T: DeserializeOwned> Test<T> {
+    pub fn get_test(&self) -> T {
+        serde_json::from_str(self.raw_test.get()).unwrap()
+    }
+}
+
+impl<'de, T> Deserialize<'de> for Test<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let raw_test = Box::<RawValue>::deserialize(deserializer)?;
+        let TestInner { name } =
+            serde_json::from_str(raw_test.get()).map_err(serde::de::Error::custom)?;
+        Ok(Self {
+            name,
+            raw_test,
+            test_data: PhantomData,
+        })
+    }
+}
+
+#[derive(Deserialize)]
+struct TestInner {
+    pub name: String,
 }
 
 #[derive(Debug)]
@@ -61,7 +90,15 @@ pub fn deserialize_hex<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Er
 pub fn deserialize_key<'de, D: Deserializer<'de>, V: HasKey<K>, K: KeyType>(
     d: D,
 ) -> Result<Key<V, K>, D::Error> {
-    KeyText::<V, K>::from_raw_bytes(&deserialize_hex(d)?)
+    let s = String::deserialize(d)?;
+
+    let key = if s.starts_with("-----BEGIN") {
+        s.into_bytes()
+    } else {
+        hex::decode(s).map_err(serde::de::Error::custom)?
+    };
+
+    KeyText::<V, K>::from_raw_bytes(&key)
         .try_into()
         .map_err(serde::de::Error::custom)
 }

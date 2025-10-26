@@ -13,6 +13,7 @@ fn main() {
 
     let mut tests = vec![];
 
+    SealTest::<paseto_v1::core::V1>::add_tests("paseto-v1", &mut tests);
     SealTest::<paseto_v2::core::V2>::add_tests("paseto-v2", &mut tests);
     SealTest::<paseto_v3::core::V3>::add_tests("paseto-v3", &mut tests);
     SealTest::<paseto_v3_aws_lc::core::V3>::add_tests("paseto-v3-aws-lc", &mut tests);
@@ -42,8 +43,7 @@ enum SealTest<V: PkeUnsealingVersion + PkeSealingVersion> {
         #[expect(unused)]
         expect_fail: Bool<true>,
         comment: String,
-        #[serde(deserialize_with = "paseto_test::deserialize_key")]
-        sealing_secret_key: Key<V, PkeSecret>,
+        sealing_secret_key: String,
         #[expect(unused)]
         unsealed: (),
         paserk: String,
@@ -60,7 +60,7 @@ where
         let test_file: TestFile<Self> = read_test(&format!("{}.seal.json", V::PASERK_HEADER,));
         for test in test_file.tests {
             let name = format!("{name}::{}", test.name);
-            tests.push(Trial::test(name, || test.test_data.test()));
+            tests.push(Trial::test(name, move || test.get_test().test()));
         }
     }
 
@@ -92,6 +92,13 @@ where
                 ..
             } => {
                 let key = match SealedKey::<V>::from_str(&paserk) {
+                    Ok(key) => key,
+                    Err(_) => return Ok(()),
+                };
+
+                let sealing_secret_key = match paseto_test::deserialize_key(
+                    serde_json::Value::String(sealing_secret_key),
+                ) {
                     Ok(key) => key,
                     Err(_) => return Ok(()),
                 };

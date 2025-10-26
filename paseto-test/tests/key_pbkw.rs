@@ -12,6 +12,7 @@ fn main() {
 
     let mut tests = vec![];
 
+    add_all_tests::<paseto_v1::core::V1>("paseto-v1", &mut tests);
     add_all_tests::<paseto_v2::core::V2>("paseto-v2", &mut tests);
     add_all_tests::<paseto_v3::core::V3>("paseto-v3", &mut tests);
     add_all_tests::<paseto_v3_aws_lc::core::V3>("paseto-v3-aws-lc", &mut tests);
@@ -60,7 +61,7 @@ where
             read_test(&format!("{}{}json", V::PASERK_HEADER, K::PW_WRAP_HEADER));
         for test in test_file.tests {
             let name = format!("{name}::{}", test.name);
-            tests.push(Trial::test(name, || test.test_data.test()));
+            tests.push(Trial::test(name, move || test.get_test().test()));
         }
     }
 

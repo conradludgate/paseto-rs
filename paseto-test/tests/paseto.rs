@@ -15,6 +15,7 @@ fn main() {
 
     let mut tests = vec![];
 
+    PasetoTest::<paseto_v1::core::V1>::add_tests("paseto-v1", &mut tests);
     PasetoTest::<paseto_v2::core::V2>::add_tests("paseto-v2", &mut tests);
     PasetoTest::<paseto_v3::core::V3>::add_tests("paseto-v3", &mut tests);
     PasetoTest::<paseto_v3_aws_lc::core::V3>::add_tests("paseto-v3-aws-lc", &mut tests);
@@ -47,7 +48,7 @@ where
         let test_file: TestFile<Self> = read_test(&format!("{}.json", V::HEADER));
         for test in test_file.tests {
             let name = format!("{name}::{}", test.name);
-            tests.push(Trial::test(name, || test.test_data.test(test.name)));
+            tests.push(Trial::test(name, || test.get_test().test(test.name)));
         }
     }
 
@@ -163,8 +164,10 @@ where
                     .sign_with_aad(&secret_key, implicit_assertion.as_bytes())
                     .unwrap();
 
-                // 3-S-1 and 3-S-3 are not using deterministic signatures.
                 match &*name {
+                    // RSA uses PSS which is not deterministic.
+                    "1-S-1" | "1-S-2" | "1-S-3" => {}
+                    // 3-S-1 and 3-S-3 are not using deterministic signatures.
                     "3-S-1" | "3-S-2" | "3-S-3" => {}
                     _ => assert_eq!(token.to_string(), token_str),
                 };

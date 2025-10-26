@@ -1,0 +1,25 @@
+{
+  "name": "PASERK k1.pid Test Vectors",
+  "tests": [
+    {
+      "name": "k1.pid-1",
+      "expect-fail": false,
+      "key": "30820122300d06092a864886f70d01010105000382010f003082010a0282010100c9a4e04ede77a61de9e461e0c28196c33e6145f597490034f0d08ec1ed0512000b5a8b3d1828cd14277bdb79c21f106d375a9def831287fb8df3c24f21bc312a1783a78931a3860c379b6b3da1747bd1ba063d4dd361e76a7c452d6fa098b6e060efd26587d617f33cc8b05cbb96353add19c430c35d2f702104ed044d277b761bc606490194d4e57ab24350f17736320b9945eb205a479510b426139d7000a5546e508d9277a2f5136be5f5b481ba66792293719119c0c08323793241ff400810b874984e6fc1d8a13826dd57a6a553284a0b5fb5c3f156e8759ca7f246d64282f033c889d67bf016eabfd605ce401b3678b979204eb17541286efc66c73ca30203010001",
+      "paserk": "k1.pid.oxQIZk0yciX7cLRZ3C0Psdoj-RUqmVHrlnIYGNma6xy8"
+    },
+    {
+      "name": "k1.pid-fail-1",
+      "expect-fail": true,
+      "key": "3082012230",
+      "paserk": null,
+      "comment": "Small RSA keys must fail to serialize."
+    },
+    {
+      "name": "k1.pid-fail-2",
+      "expect-fail": true,
+      "key": "707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e90",
+      "paserk": null,
+      "comment": "Implementations MUST NOT accept a PASERK of the wrong version."
+    }
+  ]
+}
