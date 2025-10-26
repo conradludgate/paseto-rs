@@ -28,7 +28,7 @@ paserk = ["pbkw", "pie-wrap", "pke", "id"]
 id = []
 pbkw = ["encrypting", "dep:pbkdf2", "dep:getrandom"]
 pie-wrap = ["encrypting", "dep:getrandom"]
-pke = ["encrypting", "signing", "dep:getrandom", "rsa?/hazmat"]
+pke = ["encrypting", "signing", "dep:getrandom", "rsa?/hazmat", "hmac?/reset"]
 
 [dependencies]
 paseto-core.workspace = true
