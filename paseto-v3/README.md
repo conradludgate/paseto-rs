@@ -5,7 +5,7 @@ RustCrypto based PASETO V3 implementation.
 ## Examples
 
 ```rust
-use paseto_v3_aws_lc::UnsignedToken;
+use paseto_v3::UnsignedToken;
 use paseto_v3::key::{SecretKey, SealingKey};
 use paseto_json::RegisteredClaims;
 use std::time::Duration;
