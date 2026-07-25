@@ -34,28 +34,30 @@ impl HasKey<Secret> for V3 {
     }
 }
 
-impl SecretKey {
-    pub(crate) fn random() -> Result<Self, PasetoError> {
-        let mut bytes = [0; 48];
-        loop {
-            SystemRandom::new()
-                .fill(&mut bytes)
-                .map_err(|_| PasetoError::CryptoError)?;
-            match SigningKey::from_sec1_bytes(&bytes).map(Self) {
-                Err(PasetoError::InvalidKey) => {}
-                res => break res,
-            }
-        }
-    }
-}
-
 impl paseto_core::version::SealingVersion<Public> for V3 {
     fn unsealing_key(key: &SecretKey) -> PublicKey {
         PublicKey(key.0.verifying_key())
     }
 
     fn random() -> Result<SecretKey, PasetoError> {
-        SecretKey::random()
+        let mut bytes = [0; 48];
+        let res = loop {
+            if SystemRandom::new().fill(&mut bytes).is_err() {
+                break Err(PasetoError::CryptoError);
+            }
+
+            let result = SigningKey::from_sec1_bytes(&bytes).map(SecretKey);
+
+            match result {
+                Err(PasetoError::InvalidKey) => {}
+                res => break res,
+            }
+        };
+
+        #[cfg(feature = "zeroize")]
+        zeroize::Zeroize::zeroize(&mut bytes);
+
+        res
     }
 
     fn nonce() -> Result<[u8; 0], PasetoError> {

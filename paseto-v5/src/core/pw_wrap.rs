@@ -17,18 +17,23 @@ fn wrap_keys(
     use cipher::KeyIvInit;
     use digest::KeyInit;
 
-    let key = pbkdf2::pbkdf2_array::<hmac::Hmac<sha2::Sha384>, 32>(
-        pass,
-        &prefix.salt,
-        prefix.params.iterations.get(),
-    )
-    .expect("HMAC accepts all password length inputs");
+    let key = secret!(
+        pbkdf2::pbkdf2_array::<hmac::Hmac<sha2::Sha384>, 32>(
+            pass,
+            &prefix.salt,
+            prefix.params.iterations.get(),
+        )
+        .expect("HMAC accepts all password length inputs")
+    );
 
-    let (ek, _) = kdf(&key, 0xFF).split::<U32>();
-    let ak = kdf(&key, 0xFE);
+    let key_bytes: &[u8; 32] = &key;
+    let ek_full = secret!(kdf(key_bytes, 0xFF));
+    let ek_bytes: &Array<u8, U48> = &ek_full;
+    let (ek, _) = ek_bytes.split::<U32>();
+    let ak = secret!(kdf(key_bytes, 0xFE));
 
     let cipher = ctr::Ctr64BE::<aes::Aes256>::new(&ek, (&prefix.nonce).into());
-    let mac = hmac::Hmac::new_from_slice(&ak).expect("key should be valid");
+    let mac = hmac::Hmac::new_from_slice(&*ak).expect("key should be valid");
     (cipher, mac)
 }
 

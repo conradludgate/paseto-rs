@@ -62,29 +62,28 @@ fn seal_keys(
 }
 
 impl PkeSealingVersion for V3 {
-    fn seal_key(sealing_key: &PublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
+    fn seal_key(sealing_key: &PublicKey, key: &mut LocalKey) -> Result<Box<[u8]>, PasetoError> {
         let pk = sealing_key.0.compressed_pub_key();
 
-        let esk = SecretKey::random()?;
+        let esk = <Self as paseto_core::version::SealingVersion<Public>>::random()?;
         let epk = esk.0.verifying_key().compressed_pub_key();
 
-        let xk = esk.0.diffie_hellman(&sealing_key.0)?;
+        let xk = secret!(esk.0.diffie_hellman(&sealing_key.0)?);
 
         let (cipher, mac) = seal_keys(&xk, &epk, &pk)?;
 
-        let mut edk = key.0;
-        cipher.apply_keystream(&mut edk)?;
+        cipher.apply_keystream(&mut key.0)?;
 
         let mut tag = hmac::Context::with_key(&mac);
         tag.update(b"k3.seal.");
         tag.update(&epk);
-        tag.update(&edk);
+        tag.update(&key.0);
         let tag = tag.sign();
 
         let mut output = Vec::with_capacity(48 + 49 + 32);
         output.extend_from_slice(tag.as_ref());
         output.extend_from_slice(&epk);
-        output.extend_from_slice(&edk);
+        output.extend_from_slice(&key.0);
 
         Ok(output.into_boxed_slice())
     }
@@ -116,7 +115,7 @@ impl PkeUnsealingVersion for V3 {
         let edk: &mut [u8; 32] = edk.try_into().map_err(|_| PasetoError::InvalidKey)?;
 
         let epk_point = VerifyingKey::from_sec1_bytes(epk)?;
-        let xk = unsealing_key.0.diffie_hellman(&epk_point)?;
+        let xk = secret!(unsealing_key.0.diffie_hellman(&epk_point)?);
 
         let pk = unsealing_key.0.compressed_pub_key();
         let (cipher, mac) = seal_keys(&xk, epk, &pk)?;
@@ -132,6 +131,9 @@ impl PkeUnsealingVersion for V3 {
             .map_err(|_| PasetoError::CryptoError)?;
 
         cipher.apply_keystream(edk)?;
-        Ok(LocalKey(*edk))
+        let key = LocalKey(*edk);
+        #[cfg(feature = "zeroize")]
+        zeroize::Zeroize::zeroize(edk);
+        Ok(key)
     }
 }

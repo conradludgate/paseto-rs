@@ -11,7 +11,7 @@ pub trait PkeSealingVersion: Version + HasKey<Local> + HasKey<PkePublic> {
     /// Seal the key using the public key
     fn seal_key(
         sealing_key: &KeyInner<Self, PkePublic>,
-        key: KeyInner<Self, Local>,
+        key: &mut KeyInner<Self, Local>,
     ) -> Result<Box<[u8]>, PasetoError>;
 }
 
@@ -89,8 +89,8 @@ impl<V: Version> core::str::FromStr for SealedKey<V> {
 
 impl<V: PkeSealingVersion> LocalKey<V> {
     /// Encrypt the key such that it can only be decrypted by the resspective secret key.
-    pub fn seal(self, with: &Key<V, PkePublic>) -> Result<SealedKey<V>, PasetoError> {
-        V::seal_key(&with.0, self.0).map(|key_data| SealedKey {
+    pub fn seal(mut self, with: &Key<V, PkePublic>) -> Result<SealedKey<V>, PasetoError> {
+        V::seal_key(&with.0, &mut self.0).map(|key_data| SealedKey {
             key_data,
             _version: PhantomData,
         })

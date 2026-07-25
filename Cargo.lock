@@ -723,6 +723,7 @@ dependencies = [
  "fiat-crypto 0.3.0",
  "rustc_version",
  "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -1535,6 +1536,7 @@ dependencies = [
  "module-lattice",
  "rand_core 0.10.0",
  "sha3",
+ "zeroize",
 ]
 
 [[package]]
@@ -1546,6 +1548,7 @@ dependencies = [
  "ctutils",
  "hybrid-array",
  "num-traits",
+ "zeroize",
 ]
 
 [[package]]
@@ -3191,6 +3194,7 @@ dependencies = [
  "rand_core 0.10.0",
  "sha3",
  "x25519-dalek",
+ "zeroize",
 ]
 
 [[package]]
@@ -3201,6 +3205,7 @@ checksum = "b3d5d6ff67acd3945b933e592bfa7143db4fcbb2f871754b6b9fbd7847fc5aea"
 dependencies = [
  "curve25519-dalek 5.0.0-pre.6",
  "rand_core 0.10.0",
+ "zeroize",
 ]
 
 [[package]]

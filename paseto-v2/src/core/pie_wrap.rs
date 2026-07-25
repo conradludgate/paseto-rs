@@ -16,11 +16,13 @@ impl LocalKey {
         use cipher::KeyIvInit;
         use digest::KeyInit;
 
-        let (ek, n2) = kdf::<U56>(&self.0, &[0x80], nonce).split::<U32>();
-        let ak: Array<u8, U32> = kdf(&self.0, &[0x81], nonce);
+        let ek_full = secret!(kdf::<U56>(&self.0, &[0x80], nonce));
+        let ek_bytes: &Array<u8, U56> = &ek_full;
+        let (ek, n2) = ek_bytes.split::<U32>();
+        let ak = secret!(kdf::<U32>(&self.0, &[0x81], nonce));
 
         let cipher = XChaCha20::new(&ek, &n2);
-        let mac = blake2::Blake2bMac::new_from_slice(&ak).expect("key should be valid");
+        let mac = blake2::Blake2bMac::new_from_slice(&*ak).expect("key should be valid");
         (cipher, mac)
     }
 }

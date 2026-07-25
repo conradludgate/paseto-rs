@@ -41,15 +41,16 @@ impl LocalKey {
         xchacha20::Nonce,
         crypto_generichash::State,
     ) {
-        let ekn2 = kdf(&self.0, b"paseto-encryption-key", nonce, 56);
-        let ak = kdf(&self.0, b"paseto-auth-key-for-aead", nonce, 32);
+        let ekn2 = secret!(kdf(&self.0, b"paseto-encryption-key", nonce, 56));
+        let ak = secret!(kdf(&self.0, b"paseto-auth-key-for-aead", nonce, 32));
 
         let (ek, n2) = ekn2
+            .as_slice()
             .split_last_chunk::<24>()
             .expect("kdf should output 56 bytes");
         let ek = crypto_stream::Key::from_slice(ek).expect("32 byte key should be valid");
         let n2 = xchacha20::Nonce::from_bytes(*n2);
-        let mac = crypto_generichash::State::new(Some(&ak), 32).expect("invalid mac");
+        let mac = crypto_generichash::State::new(Some(ak.as_ref()), 32).expect("invalid mac");
 
         (ek, n2, mac)
     }

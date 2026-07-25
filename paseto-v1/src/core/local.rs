@@ -45,11 +45,13 @@ impl LocalKey {
         let nonce: &Array<u8, U32> = nonce.into();
         let (n1, n2) = nonce.split_ref::<U16>();
 
-        let ek = kdf(&self.0, b"paseto-encryption-key", n1);
-        let ak = kdf(&self.0, b"paseto-auth-key-for-aead", n1);
+        let ek = secret!(kdf(&self.0, b"paseto-encryption-key", n1));
+        let ak = secret!(kdf(&self.0, b"paseto-auth-key-for-aead", n1));
 
-        let cipher = ctr::Ctr64BE::<aes::Aes256>::new(&ek, n2);
-        let mac = hmac::Hmac::new_from_slice(&ak).expect("key should be valid");
+        let ek_bytes: &Array<u8, U32> = &ek;
+        let ak_bytes: &Array<u8, U32> = &ak;
+        let cipher = ctr::Ctr64BE::<aes::Aes256>::new(ek_bytes, n2);
+        let mac = hmac::Hmac::new_from_slice(ak_bytes).expect("key should be valid");
         (cipher, mac)
     }
 }

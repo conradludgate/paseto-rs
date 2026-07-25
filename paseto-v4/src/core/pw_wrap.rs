@@ -16,18 +16,22 @@ fn wrap_keys(pass: &[u8], prefix: &Prefix) -> Result<(XChaCha20, Blake2bMac<U32>
     use cipher::KeyIvInit;
     use digest::KeyInit;
 
-    let mut key = [0u8; 32];
+    let mut key = secret!([0u8; 32]);
+    let key_bytes: &mut [u8; 32] = &mut key;
     prefix
         .params
         .pbkdf()?
-        .hash_password_into(pass, &prefix.salt, &mut key)
+        .hash_password_into(pass, &prefix.salt, key_bytes)
         .map_err(|_| PasetoError::CryptoError)?;
 
-    let ek = kdf(&key, 0xFF);
-    let ak = kdf(&key, 0xFE);
+    let key_bytes: &[u8; 32] = &key;
+    let ek = secret!(kdf(key_bytes, 0xFF));
+    let ak = secret!(kdf(key_bytes, 0xFE));
 
-    let cipher = XChaCha20::new(&ek, (&prefix.nonce).into());
-    let mac = blake2::Blake2bMac::new_from_slice(&ak).expect("key should be valid");
+    let ek_bytes: &Array<u8, U32> = &ek;
+    let ak_bytes: &Array<u8, U32> = &ak;
+    let cipher = XChaCha20::new(ek_bytes, (&prefix.nonce).into());
+    let mac = blake2::Blake2bMac::new_from_slice(ak_bytes).expect("key should be valid");
     Ok((cipher, mac))
 }
 
