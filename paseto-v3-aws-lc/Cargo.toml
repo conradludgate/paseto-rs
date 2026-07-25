@@ -31,7 +31,7 @@ paseto-core.workspace = true
 
 zerocopy = { version = "0.8", features = ["derive"] }
 
-aws-lc-rs = "1.16"
+aws-lc-rs = "1.17"
 
 zeroize = { version = "1", features = ["derive"], optional = true }
 
