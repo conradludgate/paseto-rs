@@ -49,7 +49,6 @@ impl<V: PkeUnsealingVersion> Key<V, PkeSecret> {
 ///
 /// * Encrypted using [`LocalKey::seal`]
 /// * Decrypted using [`SealedKey::unseal`]
-#[cfg_attr(feature = "zeroize", derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop))]
 pub struct SealedKey<V: Version> {
     key_data: Box<[u8]>,
     _version: PhantomData<V>,
@@ -101,13 +100,7 @@ impl<V: PkeSealingVersion> LocalKey<V> {
 impl<V: PkeUnsealingVersion> SealedKey<V> {
     /// Decrypt the sealed key.
     pub fn unseal(self, with: &Key<V, PkeSecret>) -> Result<LocalKey<V>, PasetoError> {
-        #[cfg(not(feature = "zeroize"))]
-        let key_data = self.key_data;
-
-        #[cfg(feature = "zeroize")]
-        let key_data = self.key_data.clone();
-
-        V::unseal_key(&with.0, key_data).map(Key)
+        V::unseal_key(&with.0, self.key_data).map(Key)
     }
 }
 
