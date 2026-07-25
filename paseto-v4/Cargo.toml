@@ -36,7 +36,7 @@ paseto-core.workspace = true
 
 zeroize = { version = "1", features = ["derive"], optional = true }
 
-hybrid-array = "0.4"
+hybrid-array = { version = "0.4", features = ["zeroize"] }
 cipher = "0.5"
 digest = { version = "0.11", default-features = false }
 getrandom = { version = "0.4", optional = true }

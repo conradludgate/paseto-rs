@@ -37,11 +37,11 @@ impl HasKey<Local> for V3 {
 
 impl LocalKey {
     fn keys(&self, nonce: &[u8]) -> Result<(Cipher, hmac::Context), PasetoError> {
-        let aead_key = kdf(&self.0, "paseto-encryption-key", nonce)?;
-        let (ek, n2) = aead_key
+        let aead_key = secret!(kdf(&self.0, "paseto-encryption-key", nonce)?);
+        let (ek, n2) = (&aead_key)
             .split_last_chunk::<16>()
             .ok_or(PasetoError::CryptoError)?;
-        let ak = kdf(&self.0, "paseto-auth-key-for-aead", nonce)?;
+        let ak = secret!(kdf(&self.0, "paseto-auth-key-for-aead", nonce)?);
 
         let key = UnboundCipherKey::new(&AES_256, ek).map_err(|_| PasetoError::CryptoError)?;
         let iv = FixedLength::from(n2);

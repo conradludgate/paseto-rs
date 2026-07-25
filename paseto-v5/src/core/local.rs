@@ -42,11 +42,13 @@ impl LocalKey {
         use cipher::KeyIvInit;
         use digest::KeyInit;
 
-        let (ek, n2) = kdf::<U48>(&self.0, b"paseto-encryption-key", nonce).split::<U32>();
-        let ak: Array<u8, U48> = kdf(&self.0, b"paseto-auth-key-for-aead", nonce);
+        let ek = secret!(kdf::<U48>(&self.0, b"paseto-encryption-key", nonce));
+        let ek_bytes: &Array<u8, U48> = &ek;
+        let (ek, n2) = ek_bytes.split::<U32>();
+        let ak = secret!(kdf::<U48>(&self.0, b"paseto-auth-key-for-aead", nonce));
 
         let cipher = ctr::Ctr64BE::<aes::Aes256>::new(&ek, &n2);
-        let mac = hmac::Hmac::new_from_slice(&ak).expect("key should be valid");
+        let mac = hmac::Hmac::new_from_slice(&*ak).expect("key should be valid");
         (cipher, mac)
     }
 }
