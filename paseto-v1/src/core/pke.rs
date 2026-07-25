@@ -83,7 +83,7 @@ impl HasKey<PkeSecret> for V1 {
 }
 
 impl PkeSealingVersion for V1 {
-    fn seal_key(sealing_key: &PkePublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
+    fn seal_key(sealing_key: &PkePublicKey, key: &mut LocalKey) -> Result<Box<[u8]>, PasetoError> {
         use cipher::KeyIvInit;
 
         let mut r = vec![0u8; 512];
@@ -111,18 +111,17 @@ impl PkeSealingVersion for V1 {
         mac2.update(r.as_bytes());
         let ak = mac2.finalize().into_bytes();
 
-        let mut edk = key.0;
-        ctr::Ctr64BE::<aes::Aes256>::new(&ek, &n).apply_keystream(&mut edk);
+        ctr::Ctr64BE::<aes::Aes256>::new(&ek, &n).apply_keystream(&mut key.0);
 
         let mut tag = hmac::Hmac::<sha2::Sha384>::new_from_slice(&ak).unwrap();
         tag.update(b"k1.seal.");
         tag.update(c.as_bytes());
-        tag.update(&edk);
+        tag.update(&key.0);
         let tag = tag.finalize().into_bytes();
 
         let mut output = Vec::with_capacity(48 + 32 + 512);
         output.extend_from_slice(&tag);
-        output.extend_from_slice(&edk);
+        output.extend_from_slice(&key.0);
         output.extend_from_slice(c.as_bytes());
 
         Ok(output.into_boxed_slice())
@@ -189,6 +188,9 @@ impl PkeUnsealingVersion for V1 {
 
         ctr::Ctr64BE::<aes::Aes256>::new(&ek, &n).apply_keystream(edk);
 
-        Ok(LocalKey(*edk))
+        let key = LocalKey(*edk);
+        #[cfg(feature = "zeroize")]
+        zeroize::Zeroize::zeroize(edk);
+        Ok(key)
     }
 }

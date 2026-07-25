@@ -58,7 +58,7 @@ impl HasKey<PkeSecret> for V5 {
 }
 
 impl PkeSealingVersion for V5 {
-    fn seal_key(sealing_key: &PkePublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
+    fn seal_key(sealing_key: &PkePublicKey, key: &mut LocalKey) -> Result<Box<[u8]>, PasetoError> {
         use cipher::KeyIvInit;
 
         let pk_bytes = sealing_key.0.to_bytes();
@@ -82,21 +82,20 @@ impl PkeSealingVersion for V5 {
         ak.update(pk_bytes);
         let ak = ak.finalize();
 
-        let mut edk = key.0;
-        ctr::Ctr64BE::<aes::Aes256>::new(&ek, &n).apply_keystream(&mut edk);
+        ctr::Ctr64BE::<aes::Aes256>::new(&ek, &n).apply_keystream(&mut key.0);
 
         // t = HMAC-SHA384(h || xc || edk, Ak)
         let mut tag = <hmac::Hmac<sha2::Sha384> as digest::KeyInit>::new_from_slice(&ak)
             .expect("HMAC accepts any key length");
         tag.update(b"k5.seal.");
         tag.update(&xc);
-        tag.update(&edk);
+        tag.update(&key.0);
         let tag = tag.finalize().into_bytes();
 
         let mut output = Vec::with_capacity(TAG_SIZE + ML_KEM_1024_CT_SIZE + 32);
         output.extend_from_slice(&tag);
         output.extend_from_slice(&xc);
-        output.extend_from_slice(&edk);
+        output.extend_from_slice(&key.0);
 
         Ok(output.into_boxed_slice())
     }
@@ -160,6 +159,9 @@ impl PkeUnsealingVersion for V5 {
 
         ctr::Ctr64BE::<aes::Aes256>::new(&ek, &n).apply_keystream(edk);
 
-        Ok(LocalKey(*edk))
+        let key = LocalKey(*edk);
+        #[cfg(feature = "zeroize")]
+        zeroize::Zeroize::zeroize(edk);
+        Ok(key)
     }
 }

@@ -50,7 +50,7 @@ impl HasKey<PkeSecret> for V6 {
 }
 
 impl PkeSealingVersion for V6 {
-    fn seal_key(sealing_key: &PkePublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
+    fn seal_key(sealing_key: &PkePublicKey, key: &mut LocalKey) -> Result<Box<[u8]>, PasetoError> {
         use cipher::KeyIvInit;
         use digest::{Digest, KeyInit};
 
@@ -71,8 +71,7 @@ impl PkeSealingVersion for V6 {
         n.update(pk_bytes);
         let n = n.finalize();
 
-        let mut edk = key.0;
-        chacha20::XChaCha20::new(&ek, &n).apply_keystream(&mut edk);
+        chacha20::XChaCha20::new(&ek, &n).apply_keystream(&mut key.0);
 
         let mut ak = blake2::Blake2b::<U32>::new();
         ak.update(b"\x04k6.seal.");
@@ -85,13 +84,13 @@ impl PkeSealingVersion for V6 {
             blake2::Blake2bMac::<U32>::new_from_slice(&ak).expect("BLAKE2b accepts any key length");
         tag.update(b"k6.seal.");
         tag.update(&xc);
-        tag.update(&edk);
+        tag.update(&key.0);
         let tag = tag.finalize().into_bytes();
 
         let mut output = Vec::with_capacity(TAG_SIZE + X_WING_CT_SIZE + 32);
         output.extend_from_slice(&tag);
         output.extend_from_slice(&xc);
-        output.extend_from_slice(&edk);
+        output.extend_from_slice(&key.0);
 
         Ok(output.into_boxed_slice())
     }
@@ -160,6 +159,9 @@ impl PkeUnsealingVersion for V6 {
 
         chacha20::XChaCha20::new(&ek, &n).apply_keystream(edk);
 
-        Ok(LocalKey(*edk))
+        let key = LocalKey(*edk);
+        #[cfg(feature = "zeroize")]
+        zeroize::Zeroize::zeroize(edk);
+        Ok(key)
     }
 }

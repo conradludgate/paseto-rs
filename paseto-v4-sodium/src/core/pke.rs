@@ -29,7 +29,7 @@ impl HasKey<PkeSecret> for V4 {
 }
 
 impl PkeSealingVersion for V4 {
-    fn seal_key(sealing_key: &PublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
+    fn seal_key(sealing_key: &PublicKey, key: &mut LocalKey) -> Result<Box<[u8]>, PasetoError> {
         use libsodium_rs::crypto_box;
         use libsodium_rs::crypto_scalarmult::curve25519;
 

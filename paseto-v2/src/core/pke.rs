@@ -33,7 +33,7 @@ impl HasKey<PkeSecret> for V2 {
 }
 
 impl PkeSealingVersion for V2 {
-    fn seal_key(sealing_key: &PublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
+    fn seal_key(sealing_key: &PublicKey, key: &mut LocalKey) -> Result<Box<[u8]>, PasetoError> {
         use cipher::KeyIvInit;
         use curve25519_dalek::edwards::CompressedEdwardsY;
         use curve25519_dalek::scalar::{Scalar, clamp_integer};
@@ -67,8 +67,7 @@ impl PkeSealingVersion for V2 {
         n.update(xpk.as_bytes());
         let n = n.finalize();
 
-        let mut edk = key.0;
-        chacha20::XChaCha20::new(&ek, &n).apply_keystream(&mut edk);
+        chacha20::XChaCha20::new(&ek, &n).apply_keystream(&mut key.0);
 
         let mut ak = blake2::Blake2b::<U32>::new();
         ak.update(b"\x02k2.seal.");
@@ -80,13 +79,13 @@ impl PkeSealingVersion for V2 {
         let mut tag = blake2::Blake2bMac::<U32>::new_from_slice(&ak).unwrap();
         tag.update(b"k2.seal.");
         tag.update(epk.as_bytes());
-        tag.update(&edk);
+        tag.update(&key.0);
         let tag = tag.finalize().into_bytes();
 
         let mut output = Vec::with_capacity(96);
         output.extend_from_slice(&tag);
         output.extend_from_slice(epk.as_bytes());
-        output.extend_from_slice(&edk);
+        output.extend_from_slice(&key.0);
 
         Ok(output.into_boxed_slice())
     }
@@ -156,6 +155,9 @@ impl PkeUnsealingVersion for V2 {
 
         chacha20::XChaCha20::new(&ek, &n).apply_keystream(edk);
 
-        Ok(LocalKey(*edk))
+        let key = LocalKey(*edk);
+        #[cfg(feature = "zeroize")]
+        zeroize::Zeroize::zeroize(edk);
+        Ok(key)
     }
 }
