@@ -29,9 +29,12 @@ id = []
 pbkw = ["encrypting", "dep:pbkdf2", "dep:getrandom"]
 pie-wrap = ["encrypting", "dep:getrandom"]
 pke = ["encrypting", "signing", "dep:getrandom", "rsa?/hazmat"]
+zeroize = ["paseto-core/zeroize", "dep:zeroize"]
 
 [dependencies]
 paseto-core.workspace = true
+
+zeroize = { version = "1", features = ["derive"], optional = true }
 
 hybrid-array = "0.4"
 cipher = { version = "0.5", default-features = false }

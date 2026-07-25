@@ -1,5 +1,8 @@
 # paseto-rs
 
+[![crates.io version](https://img.shields.io/crates/v/paseto-core)](https://crates.io/crates/paseto-core)
+[![docs.rs](https://img.shields.io/docsrs/paseto-core)](https://docs.rs/paseto-core)
+
 ## Crates
 
 * `paseto-core`, contains core types and traits common to all versions of PASETO

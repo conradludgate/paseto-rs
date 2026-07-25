@@ -9,6 +9,7 @@ use crate::version::Version;
 /// A plaintext encoding of a key.
 ///
 /// Be advised that this encoding has no extra security, so it is not safe to transport as is.
+#[cfg_attr(feature = "zeroize", derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop))]
 pub struct KeyText<V: Version, K: KeyType> {
     data: Box<[u8]>,
     _key: PhantomData<(V, K)>,

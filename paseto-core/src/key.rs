@@ -127,3 +127,19 @@ impl KeyType for PkePublic {
     const HEADER: &'static str = ".public.";
     const ID_HEADER: &'static str = ".pid.";
 }
+
+#[cfg(feature = "zeroize")]
+impl<V: HasKey<K>, K: KeyType> zeroize::Zeroize for Key<V, K>
+where
+    KeyInner<V, K>: zeroize::Zeroize,
+{
+    fn zeroize(&mut self) {
+        zeroize::Zeroize::zeroize(&mut self.0);
+    }
+}
+
+#[cfg(feature = "zeroize")]
+impl<V: HasKey<K>, K: KeyType> zeroize::ZeroizeOnDrop for Key<V, K> where
+    KeyInner<V, K>: zeroize::ZeroizeOnDrop
+{
+}

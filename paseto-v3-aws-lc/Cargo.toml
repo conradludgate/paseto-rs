@@ -24,12 +24,16 @@ non-fips = ["aws-lc-rs/non-fips"]
 # require FIPS
 fips = ["aws-lc-rs/fips"]
 
+zeroize = ["paseto-core/zeroize", "dep:zeroize"]
+
 [dependencies]
 paseto-core.workspace = true
 
 zerocopy = { version = "0.8", features = ["derive"] }
 
 aws-lc-rs = "1.16"
+
+zeroize = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 paseto-json.workspace = true

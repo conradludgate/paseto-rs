@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  format:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --check --all
+
+  lint:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Run clippy
+        run: cargo clippy
+
+  test:
+    runs-on: ubuntu-latest
+    name: tests
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - run: cargo test
+      - run: cargo test --no-default-features
+      - run: cargo test -p paseto-v1 --all-features
+      - run: cargo test -p paseto-v2 --all-features
+      - run: cargo test -p paseto-v3 --all-features
+      - run: cargo test -p paseto-v3-aws-lc -F zeroize non-fips # requires cmake, go
+      - run: cargo test -p paseto-v3-aws-lc -F zeroize fips # requires cmake, go
+      - run: cargo test -p paseto-v4 --all-features
+      - run: cargo test -p paseto-v5 --all-features
+      - run: cargo test -p paseto-v6 --all-features
+
+  bench:
+    runs-on: ubuntu-latest
+    name: benchmarks
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - run: cargo bench

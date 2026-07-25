@@ -12,11 +12,13 @@ use crate::lc::{SigningKey, VerifyingKey};
 
 pub struct V3;
 #[derive(Clone)]
+#[cfg_attr(feature = "zeroize", derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop))]
 pub struct SecretKey(SigningKey);
 #[derive(Clone)]
 pub struct PublicKey(VerifyingKey);
 
 #[derive(Clone)]
+#[cfg_attr(feature = "zeroize", derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop))]
 pub struct LocalKey([u8; 32]);
 
 impl paseto_core::version::Version for V3 {

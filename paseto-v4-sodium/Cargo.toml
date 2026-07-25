@@ -15,10 +15,15 @@ categories = [
   "web-programming",
 ]
 
+[features]
+default = []
+zeroize = ["paseto-core/zeroize", "dep:zeroize"]
+
 [dependencies]
 paseto-core.workspace = true
 libsodium-rs = "0.2"
 zerocopy = { version = "0.8", features = ["derive"] }
+zeroize = { version = "1", features = ["derive"], optional = true }
 
 [dev-dependencies]
 paseto-json.workspace = true

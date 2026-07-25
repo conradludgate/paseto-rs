@@ -65,10 +65,10 @@ impl PkeSealingVersion for V3 {
     fn seal_key(sealing_key: &PublicKey, key: LocalKey) -> Result<Box<[u8]>, PasetoError> {
         let pk = sealing_key.0.compressed_pub_key();
 
-        let esk = SecretKey::random()?.0;
-        let epk = esk.verifying_key().compressed_pub_key();
+        let esk = SecretKey::random()?;
+        let epk = esk.0.verifying_key().compressed_pub_key();
 
-        let xk = esk.diffie_hellman(&sealing_key.0)?;
+        let xk = esk.0.diffie_hellman(&sealing_key.0)?;
 
         let (cipher, mac) = seal_keys(&xk, &epk, &pk)?;
 

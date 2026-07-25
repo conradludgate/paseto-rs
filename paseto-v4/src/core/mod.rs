@@ -15,6 +15,7 @@ pub struct V4;
 
 #[cfg(feature = "decrypting")]
 #[derive(Clone)]
+#[cfg_attr(feature = "zeroize", derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop))]
 pub struct LocalKey([u8; 32]);
 
 #[cfg(feature = "signing")]

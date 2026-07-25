@@ -7,6 +7,7 @@ use aws_lc_rs::signature::{
 use paseto_core::PasetoError;
 
 #[derive(Clone)]
+#[cfg_attr(feature = "zeroize", derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop))]
 pub struct SigningKey {
     scalar: [u8; 48],
     compressed_pubkey: [u8; 49],

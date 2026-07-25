@@ -22,6 +22,7 @@ pub struct PublicKey(rsa::pss::VerifyingKey<sha2::Sha384>);
 
 #[cfg(feature = "decrypting")]
 #[derive(Clone)]
+#[cfg_attr(feature = "zeroize", derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop))]
 pub struct LocalKey([u8; 32]);
 
 impl version::Version for V1 {

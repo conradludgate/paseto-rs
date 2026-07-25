@@ -18,6 +18,8 @@ categories = [
 [features]
 default = []
 serde = ["dep:serde_core"]
+zeroize = ["dep:zeroize"]
 
 [dependencies]
 serde_core = { version = "1", default-features = false, optional = true }
+zeroize = { version = "1", features = ["derive"], optional = true }

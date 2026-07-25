@@ -9,12 +9,14 @@ use libsodium_rs::{crypto_generichash, crypto_sign};
 pub struct V4;
 
 #[derive(Clone)]
+#[cfg_attr(feature = "zeroize", derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop))]
 pub struct SecretKey(crypto_sign::SecretKey);
 
 #[derive(Clone)]
 pub struct PublicKey(crypto_sign::PublicKey);
 
 #[derive(Clone)]
+#[cfg_attr(feature = "zeroize", derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop))]
 pub struct LocalKey([u8; 32]);
 
 impl paseto_core::version::Version for V4 {
