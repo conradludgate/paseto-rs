@@ -40,12 +40,13 @@ impl PkeSealingVersion for V4 {
         let (epk, esk) = crypto_box::KeyPair::generate().into_tuple();
 
         // diffie hellman exchange
-        let xk =
-            curve25519::scalarmult(esk.as_bytes(), &xpk).map_err(|_| PasetoError::CryptoError)?;
+        let xk = secret!(
+            curve25519::scalarmult(esk.as_bytes(), &xpk).map_err(|_| PasetoError::CryptoError)?
+        );
 
         let mut ek = crypto_generichash::State::new(None, 32).unwrap();
         ek.update(b"\x01k4.seal.");
-        ek.update(&xk);
+        ek.update(xk.as_ref());
         ek.update(epk.as_bytes());
         ek.update(&xpk);
         let ek =
@@ -61,7 +62,7 @@ impl PkeSealingVersion for V4 {
 
         let mut ak = crypto_generichash::State::new(None, 32).unwrap();
         ak.update(b"\x02k4.seal.");
-        ak.update(&xk);
+        ak.update(xk.as_ref());
         ak.update(epk.as_bytes());
         ak.update(&xpk);
         let ak = ak.finalize();
@@ -109,11 +110,11 @@ impl PkeUnsealingVersion for V4 {
             .map_err(|_| PasetoError::CryptoError)?;
 
         // diffie hellman exchange
-        let xk = curve25519::scalarmult(&xsk, epk).map_err(|_| PasetoError::CryptoError)?;
+        let xk = secret!(curve25519::scalarmult(&xsk, epk).map_err(|_| PasetoError::CryptoError)?);
 
         let mut ak = crypto_generichash::State::new(None, 32).unwrap();
         ak.update(b"\x02k4.seal.");
-        ak.update(&xk);
+        ak.update(xk.as_ref());
         ak.update(epk);
         ak.update(&xpk);
         let ak = ak.finalize();
@@ -130,7 +131,7 @@ impl PkeUnsealingVersion for V4 {
 
         let mut ek = crypto_generichash::State::new(None, 32).unwrap();
         ek.update(b"\x01k4.seal.");
-        ek.update(&xk);
+        ek.update(xk.as_ref());
         ek.update(epk);
         ek.update(&xpk);
         let ek =

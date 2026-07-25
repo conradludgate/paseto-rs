@@ -53,7 +53,7 @@ impl PkeSealingVersion for V4 {
         let epk = EdwardsPoint::mul_base(&esk).to_montgomery();
 
         // diffie hellman exchange
-        let xk = esk * xpk;
+        let xk = secret!(esk * xpk);
 
         let mut ek = blake2::Blake2b::new();
         ek.update(b"\x01k4.seal.");
@@ -123,7 +123,7 @@ impl PkeUnsealingVersion for V4 {
         let xpk = EdwardsPoint::mul_base(&unsealing_key.1.scalar).to_montgomery();
 
         // diffie hellman exchange
-        let xk = unsealing_key.1.scalar * epk;
+        let xk = secret!(unsealing_key.1.scalar * epk);
 
         let mut ak = blake2::Blake2b::<U32>::new();
         ak.update(b"\x02k4.seal.");

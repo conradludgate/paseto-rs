@@ -86,7 +86,7 @@ impl PkeSealingVersion for V1 {
     fn seal_key(sealing_key: &PkePublicKey, key: &mut LocalKey) -> Result<Box<[u8]>, PasetoError> {
         use cipher::KeyIvInit;
 
-        let mut r = vec![0u8; 512];
+        let mut r = secret!(vec![0u8; 512]);
         getrandom::fill(&mut r).map_err(|_| PasetoError::CryptoError)?;
         r[0] &= 0x7f;
         r[0] |= 0x40;

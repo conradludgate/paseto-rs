@@ -65,11 +65,12 @@ impl PkeSealingVersion for V5 {
 
         // KEM: produce (xc, xk) — ciphertext + shared secret
         let (xc, xk) = sealing_key.0.encapsulate();
+        let xk = secret!(xk);
 
         // Ek || n = SHA-384(0x01 || h || xk || xc || pk)
         let mut ek = sha2::Sha384::new();
         ek.update(b"\x01k5.seal.");
-        ek.update(xk);
+        ek.update(&xk);
         ek.update(xc);
         ek.update(pk_bytes);
         let (ek, n) = ek.finalize().split::<U32>();
@@ -77,7 +78,7 @@ impl PkeSealingVersion for V5 {
         // Ak = SHA-384(0x02 || h || xk || xc || pk)
         let mut ak = sha2::Sha384::new();
         ak.update(b"\x02k5.seal.");
-        ak.update(xk);
+        ak.update(&xk);
         ak.update(xc);
         ak.update(pk_bytes);
         let ak = ak.finalize();
@@ -132,11 +133,11 @@ impl PkeUnsealingVersion for V5 {
 
         let xc_arr = ml_kem::Ciphertext::<ml_kem::ml_kem_1024::MlKem1024>::try_from(&xc[..])
             .map_err(|_| PasetoError::CryptoError)?;
-        let xk = unsealing_key.0.decapsulate(&xc_arr);
+        let xk = secret!(unsealing_key.0.decapsulate(&xc_arr));
 
         let mut ak = sha2::Sha384::new();
         ak.update(b"\x02k5.seal.");
-        ak.update(xk);
+        ak.update(&xk);
         ak.update(xc);
         ak.update(pk_bytes);
         let ak = ak.finalize();
@@ -152,7 +153,7 @@ impl PkeUnsealingVersion for V5 {
 
         let mut ek = sha2::Sha384::new();
         ek.update(b"\x01k5.seal.");
-        ek.update(xk);
+        ek.update(&xk);
         ek.update(xc);
         ek.update(pk_bytes);
         let (ek, n) = ek.finalize().split::<U32>();

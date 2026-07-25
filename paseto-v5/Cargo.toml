@@ -22,7 +22,7 @@ id = []
 pbkw = ["encrypting", "dep:pbkdf2", "dep:getrandom"]
 pie-wrap = ["encrypting", "dep:getrandom"]
 pke = ["encrypting", "dep:ml-kem", "dep:getrandom"]
-zeroize = ["paseto-core/zeroize", "dep:zeroize"]
+zeroize = ["paseto-core/zeroize", "dep:zeroize", "ml-kem?/zeroize"]
 
 [dependencies]
 paseto-core.workspace = true

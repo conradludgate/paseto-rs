@@ -42,6 +42,19 @@
 //! ```
 #![deny(unsafe_code)]
 
+#[cfg(feature = "zeroize")]
+macro_rules! secret {
+    ($value:expr) => {
+        zeroize::Zeroizing::new($value)
+    };
+}
+#[cfg(not(feature = "zeroize"))]
+macro_rules! secret {
+    ($value:expr) => {
+        $value
+    };
+}
+
 /// Low level implementation primitives.
 pub mod core;
 mod lc;

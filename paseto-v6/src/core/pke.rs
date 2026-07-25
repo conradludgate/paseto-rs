@@ -57,10 +57,11 @@ impl PkeSealingVersion for V6 {
         let pk_bytes = sealing_key.0.to_bytes();
 
         let (xc, xk) = sealing_key.0.encapsulate();
+        let xk = secret!(xk);
 
         let mut ek = blake2::Blake2b::new();
         ek.update(b"\x03k6.seal.");
-        ek.update(xk);
+        ek.update(&xk);
         ek.update(xc);
         ek.update(pk_bytes);
         let ek = ek.finalize();
@@ -75,7 +76,7 @@ impl PkeSealingVersion for V6 {
 
         let mut ak = blake2::Blake2b::<U32>::new();
         ak.update(b"\x04k6.seal.");
-        ak.update(xk);
+        ak.update(&xk);
         ak.update(xc);
         ak.update(pk_bytes);
         let ak = ak.finalize();
@@ -126,11 +127,11 @@ impl PkeUnsealingVersion for V6 {
         let pk_bytes = unsealing_key.0.encapsulation_key().to_bytes();
 
         let xc_obj = x_wing::Ciphertext::try_from(&xc[..]).map_err(|_| PasetoError::CryptoError)?;
-        let xk = unsealing_key.0.decapsulate(&xc_obj);
+        let xk = secret!(unsealing_key.0.decapsulate(&xc_obj));
 
         let mut ak = blake2::Blake2b::<U32>::new();
         ak.update(b"\x04k6.seal.");
-        ak.update(xk);
+        ak.update(&xk);
         ak.update(xc);
         ak.update(pk_bytes);
         let ak = ak.finalize();
@@ -146,7 +147,7 @@ impl PkeUnsealingVersion for V6 {
 
         let mut ek = blake2::Blake2b::new();
         ek.update(b"\x03k6.seal.");
-        ek.update(xk);
+        ek.update(&xk);
         ek.update(xc);
         ek.update(pk_bytes);
         let ek = ek.finalize();

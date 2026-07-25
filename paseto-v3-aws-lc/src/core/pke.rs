@@ -68,7 +68,7 @@ impl PkeSealingVersion for V3 {
         let esk = <Self as paseto_core::version::SealingVersion<Public>>::random()?;
         let epk = esk.0.verifying_key().compressed_pub_key();
 
-        let xk = esk.0.diffie_hellman(&sealing_key.0)?;
+        let xk = secret!(esk.0.diffie_hellman(&sealing_key.0)?);
 
         let (cipher, mac) = seal_keys(&xk, &epk, &pk)?;
 
@@ -115,7 +115,7 @@ impl PkeUnsealingVersion for V3 {
         let edk: &mut [u8; 32] = edk.try_into().map_err(|_| PasetoError::InvalidKey)?;
 
         let epk_point = VerifyingKey::from_sec1_bytes(epk)?;
-        let xk = unsealing_key.0.diffie_hellman(&epk_point)?;
+        let xk = secret!(unsealing_key.0.diffie_hellman(&epk_point)?);
 
         let pk = unsealing_key.0.compressed_pub_key();
         let (cipher, mac) = seal_keys(&xk, epk, &pk)?;
