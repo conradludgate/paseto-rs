@@ -14,8 +14,10 @@ impl LocalKey {
         use cipher::KeyIvInit;
         use digest::KeyInit;
 
-        let (ek, n2) = kdf(&self.0, 0x80, nonce).split::<U32>();
-        let ak = kdf(&self.0, 0x81, nonce);
+        let ek_full = secret!(kdf(&self.0, 0x80, nonce));
+        let ek_bytes: &Array<u8, U48> = &ek_full;
+        let (ek, n2) = ek_bytes.split::<U32>();
+        let ak = secret!(kdf(&self.0, 0x81, nonce));
 
         let cipher = ctr::Ctr64BE::<aes::Aes256>::new(&ek, &n2);
         let mac = hmac::Hmac::new_from_slice(&ak[..32]).expect("key should be valid");

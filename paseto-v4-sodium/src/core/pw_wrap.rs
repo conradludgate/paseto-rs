@@ -15,21 +15,23 @@ fn wrap_keys(
     if prefix.params.para.get() != 1 {
         return Err(PasetoError::InvalidKey);
     }
-    let key = crypto_pwhash::pwhash(
-        32,
-        pass,
-        &prefix.salt,
-        u64::from(prefix.params.time.get()),
-        usize::try_from(prefix.params.mem.get()).map_err(|_| PasetoError::InvalidKey)?,
-        ALG_ARGON2ID13,
-    )
-    .map_err(|_| PasetoError::CryptoError)?;
+    let key = secret!(
+        crypto_pwhash::pwhash(
+            32,
+            pass,
+            &prefix.salt,
+            u64::from(prefix.params.time.get()),
+            usize::try_from(prefix.params.mem.get()).map_err(|_| PasetoError::InvalidKey)?,
+            ALG_ARGON2ID13,
+        )
+        .map_err(|_| PasetoError::CryptoError)?
+    );
 
-    let ek = kdf(&key, 0xFF)?;
-    let ak = kdf(&key, 0xFE)?;
+    let ek = secret!(kdf(key.as_slice(), 0xFF)?);
+    let ak = secret!(kdf(key.as_slice(), 0xFE)?);
 
-    let ek = crypto_stream::Key::from_slice(&ek).expect("32 byte key should be valid");
-    let mac = crypto_generichash::State::new(Some(&ak), 32).expect("invalid mac");
+    let ek = crypto_stream::Key::from_slice(ek.as_slice()).expect("32 byte key should be valid");
+    let mac = crypto_generichash::State::new(Some(ak.as_slice()), 32).expect("invalid mac");
     Ok((ek, mac))
 }
 

@@ -45,7 +45,7 @@ impl LocalKey {
 
         let key = UnboundCipherKey::new(&AES_256, ek).map_err(|_| PasetoError::CryptoError)?;
         let iv = FixedLength::from(n2);
-        let mac = hmac::Context::with_key(&hmac::Key::new(HMAC_SHA384, &ak));
+        let mac = hmac::Context::with_key(&hmac::Key::new(HMAC_SHA384, ak.as_ref()));
 
         Ok((Cipher(key, iv), mac))
     }

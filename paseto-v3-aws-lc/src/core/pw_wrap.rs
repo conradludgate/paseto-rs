@@ -15,12 +15,14 @@ use super::V3;
 use crate::core::Cipher;
 
 fn wrap_keys(pass: &[u8], prefix: &Prefix) -> Result<(Cipher, hmac::Context), PasetoError> {
-    let mut key = [0; 32];
+    let mut key = secret!([0; 32]);
     let iter = NonZeroU32::new(prefix.params.iterations.get()).ok_or(PasetoError::InvalidKey)?;
-    pbkdf2::derive(PBKDF2_HMAC_SHA384, iter, &prefix.salt, pass, &mut key);
+    let key_bytes: &mut [u8; 32] = &mut key;
+    pbkdf2::derive(PBKDF2_HMAC_SHA384, iter, &prefix.salt, pass, key_bytes);
 
-    let ek = kdf(&key, 0xFF);
-    let ak = kdf(&key, 0xFE);
+    let key_bytes: &[u8; 32] = &key;
+    let ek = kdf(key_bytes, 0xFF);
+    let ak = kdf(key_bytes, 0xFE);
 
     let key = UnboundCipherKey::new(&AES_256, &ek.as_ref()[..32])
         .map_err(|_| PasetoError::CryptoError)?;

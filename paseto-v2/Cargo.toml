@@ -29,7 +29,7 @@ id = ["dep:blake2"]
 pbkw = ["encrypting", "dep:argon2", "dep:getrandom"]
 pie-wrap = ["encrypting", "dep:getrandom"]
 pke = ["encrypting", "signing", "dep:getrandom"]
-zeroize = ["paseto-core/zeroize", "dep:zeroize", "curve25519-dalek?/zeroize"]
+zeroize = ["paseto-core/zeroize", "dep:zeroize", "hybrid-array/zeroize", "curve25519-dalek?/zeroize"]
 
 [dependencies]
 paseto-core.workspace = true
