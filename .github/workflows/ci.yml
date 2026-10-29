@@ -36,7 +36,8 @@ jobs:
         run: cargo clippy
 
   test:
-    runs-on: ubuntu-latest
+    # Keep a GCC 13 default for the locked AWS-LC FIPS module.
+    runs-on: ubuntu-24.04
     name: tests
     steps:
       - uses: actions/checkout@v7
@@ -47,8 +48,14 @@ jobs:
       - run: cargo test -p paseto-v1 --all-features
       - run: cargo test -p paseto-v2 --all-features
       - run: cargo test -p paseto-v3 --all-features
-      - run: cargo test -p paseto-v3-aws-lc -F zeroize non-fips # requires cmake, go
-      - run: cargo test -p paseto-v3-aws-lc -F zeroize fips # requires cmake, go
+      - name: Test AWS-LC non-FIPS
+        run: |
+          cargo test -p paseto-v3-aws-lc --features zeroize,non-fips
+          cargo test -p paseto-test --features paseto-v3-aws-lc/zeroize,paseto-v3-aws-lc/non-fips -- paseto-v3-aws-lc
+      - name: Test AWS-LC FIPS
+        run: |
+          cargo test -p paseto-v3-aws-lc --features zeroize,fips
+          cargo test -p paseto-test --features paseto-v3-aws-lc/zeroize,paseto-v3-aws-lc/fips -- paseto-v3-aws-lc
       - run: cargo test -p paseto-v4 --all-features
       - run: cargo test -p paseto-v5 --all-features
       - run: cargo test -p paseto-v6 --all-features
