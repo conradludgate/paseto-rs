@@ -24,4 +24,4 @@ paseto-core = { workspace = true, features = ["serde"] }
 serde_core = "1"
 serde_json = "1"
 
-jiff = { version = "0.2", features = ["serde"], optional = true }
+jiff = { version = "1", features = ["serde"], optional = true }
