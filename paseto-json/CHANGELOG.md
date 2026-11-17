@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-rc.11](https://github.com/conradludgate/paseto-rs/compare/paseto-json-v0.1.0-rc.10...paseto-json-v0.1.0-rc.11) - 2026-11-17
+
+### Added
+
+- [**breaking**] upgrade claims to Jiff 1.0
+
 ## [0.1.0-rc.10](https://github.com/conradludgate/paseto-rs/compare/paseto-json-v0.1.0-rc.9...paseto-json-v0.1.0-rc.10) - 2026-07-25
 
 ### Other

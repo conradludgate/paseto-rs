@@ -1653,7 +1653,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-json"
-version = "0.1.0-rc.10"
+version = "0.1.0-rc.11"
 dependencies = [
  "jiff",
  "paseto-core",
@@ -1685,7 +1685,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v1"
-version = "0.1.0-rc.10"
+version = "0.1.0-rc.11"
 dependencies = [
  "aes",
  "cipher 0.5.1",
@@ -1706,7 +1706,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v2"
-version = "0.1.0-rc.10"
+version = "0.1.0-rc.11"
 dependencies = [
  "argon2",
  "blake2 0.11.0-rc.6",
@@ -1728,7 +1728,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v3"
-version = "0.1.0-rc.10"
+version = "0.1.0-rc.11"
 dependencies = [
  "aes",
  "cipher 0.5.1",
@@ -1749,7 +1749,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v3-aws-lc"
-version = "0.1.0-rc.10"
+version = "0.1.0-rc.11"
 dependencies = [
  "aws-lc-rs",
  "paseto-core",
@@ -1760,7 +1760,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v4"
-version = "0.1.0-rc.10"
+version = "0.1.0-rc.11"
 dependencies = [
  "argon2",
  "blake2 0.11.0-rc.6",
@@ -1781,7 +1781,7 @@ dependencies = [
 
 [[package]]
 name = "paseto-v4-sodium"
-version = "0.1.0-rc.10"
+version = "0.1.0-rc.11"
 dependencies = [
  "hex",
  "libsodium-rs",
